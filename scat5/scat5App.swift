@@ -1,33 +1,24 @@
-//
-//  scat5App.swift
-//  scat5
-//
-//  Created by Arnav Jhajharia on 7/8/25.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
 struct scat5App: App {
-
-    @State private var appModel = AppModel()
-
+    @State private var authService = AuthService()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(appModel)
+                .environment(authService)
         }
-
-        ImmersiveSpace(id: appModel.immersiveSpaceID) {
-            ImmersiveView()
-                .environment(appModel)
-                .onAppear {
-                    appModel.immersiveSpaceState = .open
-                }
-                .onDisappear {
-                    appModel.immersiveSpaceState = .closed
-                }
-        }
-        .immersionStyle(selection: .constant(.full), in: .full)
+        .modelContainer(for: [
+            User.self,
+            TestSession.self,
+            SymptomResult.self,
+            CognitiveResult.self,
+            MemoryTrial.self,
+            CoordinationResult.self,
+            BalanceResult.self,
+            BalanceTrialResult.self
+        ])
     }
 }
