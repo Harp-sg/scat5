@@ -9,16 +9,26 @@ class AuthService {
     
     private var modelContext: ModelContext?
     
+    // UserDefaults key for storing the current user's username
+    private let currentUserKey = "SCAT5_CurrentUser"
+    
     func setModelContext(_ context: ModelContext) {
         self.modelContext = context
+        // Try to restore the previous session when model context is set
+        restoreUserSession()
     }
     
-    func login(username: String, password: String) -> Bool {
-        guard let context = modelContext else { return false }
+    private func restoreUserSession() {
+        guard let context = modelContext else { return }
         
+        // Check if there's a stored username from previous session
+        let storedUsername = UserDefaults.standard.string(forKey: currentUserKey)
+        guard let username = storedUsername else { return }
+        
+        // Try to fetch the user from the database
         let descriptor = FetchDescriptor<User>(
             predicate: #Predicate<User> { user in
-                user.username == username && user.password == password
+                user.username == username
             }
         )
         
@@ -26,12 +36,51 @@ class AuthService {
             let users = try context.fetch(descriptor)
             if let user = users.first {
                 currentUser = user
-                return true
+                print("Restored user session for: \(username)")
+            } else {
+                // User no longer exists, clear the stored session
+                clearStoredSession()
+            }
+        } catch {
+            print("Error restoring user session: \(error)")
+            clearStoredSession()
+        }
+    }
+    
+    private func storeUserSession(_ username: String) {
+        UserDefaults.standard.set(username, forKey: currentUserKey)
+    }
+    
+    private func clearStoredSession() {
+        UserDefaults.standard.removeObject(forKey: currentUserKey)
+    }
+    
+    func login(username: String, password: String) -> Bool {
+        guard let context = modelContext else { return false }
+        
+        // Step 1: Fetch the user by username only.
+        let descriptor = FetchDescriptor<User>(
+            predicate: #Predicate<User> { user in
+                user.username == username
+            }
+        )
+        
+        do {
+            let users = try context.fetch(descriptor)
+            // Step 2: If a user is found, verify their password.
+            if let user = users.first {
+                if user.password == password {
+                    currentUser = user
+                    // Store the session for next app launch
+                    storeUserSession(username)
+                    return true // Login successful
+                }
             }
         } catch {
             print("Login error: \(error)")
         }
         
+        // If the user is not found or the password does not match, return false.
         return false
     }
     
@@ -63,6 +112,8 @@ class AuthService {
             context.insert(newUser)
             try context.save()
             currentUser = newUser
+            // Store the session for next app launch
+            storeUserSession(username)
             return true
             
         } catch {
@@ -73,6 +124,8 @@ class AuthService {
     
     func logout() {
         currentUser = nil
+        // Clear the stored session
+        clearStoredSession()
     }
     
     func updateUserBiodata(position: String, yearsExperience: Int, height: Double, weight: Double, dominantHand: DominantHand) {

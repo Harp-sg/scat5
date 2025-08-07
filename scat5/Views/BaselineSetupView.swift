@@ -189,3 +189,21 @@ struct AssessmentModule: View {
         )
     }
 }
+
+#Preview {
+    NavigationStack {
+        BaselineSetupView()
+            .environment(AuthService())
+            .modelContainer(for: [
+                User.self,
+                TestSession.self,
+                SymptomResult.self,
+                CognitiveResult.self,
+                OrientationResult.self,
+                ConcentrationResult.self,
+                MemoryTrial.self,
+                NeurologicalResult.self,
+                BalanceResult.self
+            ])
+    }
+}

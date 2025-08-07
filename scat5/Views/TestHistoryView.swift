@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct TestHistoryView: View {
     @Environment(AuthService.self) private var authService
@@ -50,6 +51,7 @@ struct TestHistoryView: View {
 
 struct TestResultsView: View {
     let session: TestSession
+    private let riskEngine = RiskAssessmentEngine()
     
     var body: some View {
         List {
@@ -76,6 +78,61 @@ struct TestResultsView: View {
                 }
             }
             
+            // Only show risk analysis if this is not a baseline session itself
+            if session.sessionType != .baseline {
+                Section("Risk Analysis (vs. Baseline)") {
+                    // Symptom Severity Z-Score
+                    if let zScore = session.symptomSeverityZScore {
+                        RiskAnalysisRow(
+                            title: "Symptom Severity Z-Score",
+                            zScore: zScore,
+                            interpretation: riskEngine.interpretZScore(zScore),
+                            higherIsWorse: true
+                        )
+                    }
+                    
+                    // Orientation Z-Score (New)
+                    if let zScore = session.orientationZScore {
+                        RiskAnalysisRow(
+                            title: "Orientation Z-Score",
+                            zScore: zScore,
+                            interpretation: riskEngine.interpretZScore(zScore),
+                            higherIsWorse: false
+                        )
+                    }
+                    
+                    // Immediate Memory Z-Score
+                    if let zScore = session.immediateMemoryZScore {
+                        RiskAnalysisRow(
+                            title: "Immediate Memory Z-Score",
+                            zScore: zScore,
+                            interpretation: riskEngine.interpretZScore(zScore),
+                            higherIsWorse: false
+                        )
+                    }
+                    
+                    // Concentration Z-Score
+                    if let zScore = session.concentrationZScore {
+                        RiskAnalysisRow(
+                            title: "Concentration Z-Score",
+                            zScore: zScore,
+                            interpretation: riskEngine.interpretZScore(zScore),
+                            higherIsWorse: false
+                        )
+                    }
+                    
+                    // Delayed Recall Z-Score
+                    if let zScore = session.delayedRecallZScore {
+                        RiskAnalysisRow(
+                            title: "Delayed Recall Z-Score",
+                            zScore: zScore,
+                            interpretation: riskEngine.interpretZScore(zScore),
+                            higherIsWorse: false
+                        )
+                    }
+                }
+            }
+            
             Section("Results") {
                 if let symptomResult = session.symptomResult {
                     HStack {
@@ -87,11 +144,13 @@ struct TestResultsView: View {
                 }
                 
                 if let cognitiveResult = session.cognitiveResult {
-                    let totalScore = cognitiveResult.orientationScore + cognitiveResult.immediateMemoryTotalScore + cognitiveResult.concentrationScore
+                    let orientationScore = cognitiveResult.orientationResult?.correctCount ?? 0
+                    let concentrationScore = cognitiveResult.concentrationResult?.totalScore ?? 0
+                    let totalCognitiveScore = orientationScore + cognitiveResult.immediateMemoryTotalScore + concentrationScore
                     HStack {
                         Text("Cognitive Score")
                         Spacer()
-                        Text("\(totalScore) / 25")
+                        Text("\(totalCognitiveScore) / 25") // Note: Max score might need adjustment
                             .foregroundColor(.secondary)
                     }
                 }
@@ -108,4 +167,59 @@ struct TestResultsView: View {
         }
         .navigationTitle("Test Results")
     }
+}
+
+/// A reusable view row for displaying a Z-score and its interpretation.
+struct RiskAnalysisRow: View {
+    let title: String
+    let zScore: Double
+    let interpretation: RiskLevel
+    let higherIsWorse: Bool
+
+    private var interpretationColor: Color {
+        switch interpretation {
+        case .low:
+            return .green
+        case .moderate:
+            return .orange
+        case .high:
+            return .red
+        }
+    }
+    
+    private var zScoreString: String {
+        String(format: "%+.2f", zScore)
+    }
+
+    var body: some View {
+        HStack {
+            Text(title)
+            Spacer()
+            VStack(alignment: .trailing) {
+                Text(zScoreString)
+                    .font(.system(.body, design: .monospaced))
+                    .fontWeight(.bold)
+                Text(interpretation.rawValue)
+                    .font(.caption)
+                    .foregroundColor(interpretationColor)
+            }
+        }
+    }
+}
+
+#Preview("Test History") {
+    NavigationStack {
+        TestHistoryView()
+            .environment(AuthService())
+    }
+}
+
+#Preview("Test Results") {
+    let container = try! ModelContainer(for: TestSession.self, SymptomResult.self, CognitiveResult.self)
+    let sampleSession = TestSession(date: .now, sessionType: .concussion)
+    
+    NavigationStack {
+        TestResultsView(session: sampleSession)
+    }
+    .modelContainer(container)
 }

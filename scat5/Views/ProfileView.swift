@@ -91,3 +91,8 @@ struct ProfileView: View {
         }
     }
 }
+
+#Preview {
+    ProfileView()
+        .environment(AuthService())
+}

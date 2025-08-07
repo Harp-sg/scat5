@@ -183,3 +183,8 @@ struct BiodataView: View {
         dominantHand = user.dominantHand
     }
 }
+
+#Preview {
+    BiodataView()
+        .environment(AuthService())
+}

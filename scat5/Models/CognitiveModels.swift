@@ -4,8 +4,10 @@ import SwiftData
 @Model
 final class CognitiveResult {
     var id: UUID
-    var orientationScore: Int = 0
-    var concentrationScore: Int = 0
+    @Relationship(deleteRule: .cascade)
+    var orientationResult: OrientationResult?
+    @Relationship(deleteRule: .cascade)
+    var concentrationResult: ConcentrationResult?
     @Relationship(deleteRule: .cascade)
     var immediateMemoryTrials: [MemoryTrial] = []
     var delayedRecalledWords: [String] = []
@@ -21,6 +23,8 @@ final class CognitiveResult {
 
     init(id: UUID = UUID()) {
         self.id = id
+        self.orientationResult = OrientationResult()
+        self.concentrationResult = ConcentrationResult()
         let wordList = Self.getWordList()
         self.immediateMemoryTrials = (1...3).map { MemoryTrial(trialNumber: $0, words: wordList) }
     }

@@ -2,134 +2,135 @@ import SwiftUI
 
 struct MainDashboardView: View {
     @Environment(AuthService.self) private var authService
+    @Environment(AppViewModel.self) private var appViewModel
+    @Environment(ViewRouter.self) private var viewRouter
     @State private var showingProfile = false
-    @State private var showingConcussionTest = false
-    @State private var showingPostExerciseTest = false
     
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                // Top Navigation Bar
+        VStack(spacing: 0) {
+            // Header Section
+            VStack(spacing: 12) {
                 HStack {
-                    HStack(spacing: 12) {
-                        Image(systemName: "brain.head.profile")
-                            .font(.system(size: 24))
-                            .foregroundColor(.blue)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("SCAT5 Assessment Platform")
+                            .font(.system(size: 28, weight: .medium, design: .rounded))
+                            .foregroundColor(.primary)
                         
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("SCAT5 Assessment")
-                                .font(.system(size: 18, weight: .medium))
-                                .foregroundColor(.primary)
-                            
-                            if let user = authService.currentUser {
-                                Text("Welcome, \(user.firstName)")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.secondary)
-                            }
+                        if let user = authService.currentUser {
+                            Text("Welcome back, \(user.firstName)")
+                                .font(.system(size: 18, weight: .light))
+                                .foregroundColor(.secondary)
                         }
                     }
                     
                     Spacer()
                     
-                    HStack(spacing: 16) {
-                        // Status indicator
-                        if let user = authService.currentUser {
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill(user.hasBaseline ? Color.green : Color.orange)
-                                    .frame(width: 8, height: 8)
-                                
-                                Text(user.hasBaseline ? "Baseline Set" : "No Baseline")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.secondary)
-                            }
+                    // Status indicator
+                    if let user = authService.currentUser {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(user.hasBaseline ? Color.green : Color.orange)
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(user.hasBaseline ? 1.0 : 1.2)
+                                .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: user.hasBaseline)
+                            
+                            Text(user.hasBaseline ? "Baseline Ready" : "Setup Required")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(user.hasBaseline ? .green : .orange)
                         }
-                        
-                        Button {
-                            showingProfile = true
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "person.circle")
-                                    .font(.system(size: 20))
-                                Text("Profile")
-                                    .font(.system(size: 14))
-                            }
-                            .foregroundColor(.blue)
-                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color(.systemGray6).opacity(0.8))
+                        .cornerRadius(12)
                     }
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 20)
-                .background(Color(.systemBackground))
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(Color(.systemGray5)),
-                    alignment: .bottom
-                )
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 30)
+            
+            Spacer()
+            
+            // Main Assessment Cards
+            VStack(spacing: 30) {
+                // Primary: Concussion Assessment - Large & Urgent
+                Button(action: {
+                    viewRouter.navigate(to: .testSelection(.concussion))
+                }) {
+                    UrgentAssessmentCard()
+                }
+                .buttonStyle(VolumetricButtonStyle())
                 
-                // Main Content
-                ScrollView {
-                    VStack(spacing: 40) {
-                        // Header Section
-                        VStack(spacing: 16) {
-                            Text("Select Assessment Type")
-                                .font(.system(size: 28, weight: .light))
-                                .foregroundColor(.primary)
-                            
-                            Text("Choose the appropriate assessment protocol based on the clinical scenario")
-                                .font(.system(size: 16))
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                        .padding(.top, 40)
-                        
-                        // Assessment Options
-                        HStack(spacing: 32) {
-                            Button(action: {
-                                showingConcussionTest = true
-                            }) {
-                                AssessmentCard(
-                                    title: "Concussion Assessment",
-                                    subtitle: "SCAT5 Protocol",
-                                    description: "Complete evaluation for suspected traumatic brain injury including symptom assessment, cognitive testing, and neurological examination.",
-                                    icon: "brain.head.profile",
-                                    color: .red,
-                                    severity: "High Priority"
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                            
-                            Button(action: {
-                                showingPostExerciseTest = true
-                            }) {
-                                AssessmentCard(
-                                    title: "Post-Exercise Stability",
-                                    subtitle: "Balance & Coordination",
-                                    description: "Assess balance, coordination, and stability following physical activity to establish baseline or monitor recovery.",
-                                    icon: "figure.walk",
-                                    color: .blue,
-                                    severity: "Standard"
-                                )
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        .padding(.horizontal, 32)
-                        
-                        Spacer(minLength: 40)
+                // Secondary Options Row
+                HStack(spacing: 25) {
+                    Button(action: {
+                        viewRouter.navigate(to: .testSelection(.postExercise))
+                    }) {
+                        SecondaryAssessmentCard(
+                            title: "Post-Exercise\nStability",
+                            icon: "figure.walk",
+                            color: .blue,
+                            description: "Evaluate performance after activity"
+                        )
                     }
+                    .buttonStyle(VolumetricButtonStyle())
+                    
+                    Button(action: {
+                        viewRouter.navigate(to: .testSelection(.baseline))
+                    }) {
+                        SecondaryAssessmentCard(
+                            title: "Baseline\nAssessment",
+                            icon: "chart.line.uptrend.xyaxis",
+                            color: .green,
+                            description: "Establish normal performance"
+                        )
+                    }
+                    .buttonStyle(VolumetricButtonStyle())
                 }
-                .background(Color(.systemGroupedBackground))
             }
-            .navigationDestination(isPresented: $showingConcussionTest) {
-                TestSelectionView(testType: .concussion)
-                    .environment(authService)
+            .padding(.horizontal, 40)
+            
+            Spacer()
+            
+            // Footer with Profile Button
+            HStack {
+                Spacer()
+                
+                Button(action: {
+                    showingProfile = true
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 18))
+                        Text("Profile")
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color(.systemGray6).opacity(0.8))
+                    .cornerRadius(20)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .navigationDestination(isPresented: $showingPostExerciseTest) {
-                TestSelectionView(testType: .postExercise)
-                    .environment(authService)
-            }
+            .padding(.horizontal, 40)
+            .padding(.bottom, 30)
         }
+        .padding(40)
+        .background(
+            LinearGradient(
+                gradient: Gradient(colors: [
+                    Color(.systemGray6).opacity(0.3),
+                    Color(.systemGray5).opacity(0.2)
+                ]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(25)
         .sheet(isPresented: $showingProfile) {
             ProfileView()
                 .environment(authService)
@@ -137,76 +138,147 @@ struct MainDashboardView: View {
     }
 }
 
-struct AssessmentCard: View {
-    let title: String
-    let subtitle: String
-    let description: String
-    let icon: String
-    let color: Color
-    let severity: String
+// Urgent Primary Assessment Card for Concussion
+struct UrgentAssessmentCard: View {
+    @State private var pulseAnimation = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            VStack(spacing: 16) {
-                ZStack {
-                    Circle()
-                        .fill(color.opacity(0.1))
-                        .frame(width: 80, height: 80)
+        ZStack {
+            RoundedRectangle(cornerRadius: 25)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            Color.red.opacity(0.2),
+                            Color.red.opacity(0.1),
+                            Color.red.opacity(0.05)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 25)
+                        .stroke(Color.red.opacity(0.6), lineWidth: 2)
+                )
+                .scaleEffect(pulseAnimation ? 1.02 : 1.0)
+                .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: pulseAnimation)
+            
+            HStack(spacing: 25) {
+                VStack(spacing: 15) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 45, weight: .light))
+                        .foregroundColor(.red)
+                        .shadow(color: .red.opacity(0.3), radius: 8, x: 0, y: 2)
                     
-                    Image(systemName: icon)
-                        .font(.system(size: 36, weight: .light))
-                        .foregroundColor(color)
+                    Text("URGENT")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.red)
+                        .tracking(2)
                 }
                 
-                VStack(spacing: 8) {
-                    Text(title)
-                        .font(.system(size: 20, weight: .medium))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Concussion Assessment")
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
                         .foregroundColor(.primary)
-                        .multilineTextAlignment(.center)
                     
-                    Text(subtitle)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(color)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 4)
-                        .background(color.opacity(0.1))
-                        .cornerRadius(12)
+                    Text("Immediate evaluation for suspected head injury")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.leading)
+                    
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.orange)
+                        Text("~15-20 minutes")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.top, 4)
                 }
+                
+                Spacer()
+                
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 30))
+                    .foregroundColor(.red)
+                    .opacity(0.8)
             }
-            .padding(.top, 32)
-            .padding(.horizontal, 24)
+            .padding(30)
+        }
+        .frame(height: 160)
+        .shadow(color: Color.red.opacity(0.2), radius: 15, x: 0, y: 8)
+        .onAppear {
+            pulseAnimation = true
+        }
+    }
+}
+
+// Secondary Assessment Card
+struct SecondaryAssessmentCard: View {
+    let title: String
+    let icon: String
+    let color: Color
+    let description: String
+    
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 20)
+                .fill(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            color.opacity(0.15),
+                            color.opacity(0.08),
+                            color.opacity(0.03)
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(color.opacity(0.4), lineWidth: 1.5)
+                )
             
-            // Content
-            VStack(spacing: 16) {
+            VStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 35, weight: .light))
+                    .foregroundColor(color)
+                    .shadow(color: color.opacity(0.3), radius: 4, x: 0, y: 2)
+                
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                
                 Text(description)
-                    .font(.system(size: 14))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(4)
-                
-                HStack {
-                    Text(severity)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(color)
-                    
-                    Spacer()
-                    
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.system(size: 16))
-                        .foregroundColor(color)
-                }
+                    .lineLimit(2)
+                    .padding(.horizontal, 8)
             }
-            .padding(24)
-            .background(Color(.systemBackground))
+            .padding(20)
         }
-        .frame(maxWidth: 320, minHeight: 280)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(.systemGray5), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.05), radius: 8, x: 0, y: 4)
+        .frame(width: 200, height: 140)
+        .shadow(color: color.opacity(0.15), radius: 10, x: 0, y: 5)
     }
+}
+
+// Custom button style for volumetric effect
+struct VolumetricButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+#Preview {
+    MainDashboardView()
+        .environment(AuthService())
+        .environment(AppViewModel())
+        .environment(ViewRouter())
 }

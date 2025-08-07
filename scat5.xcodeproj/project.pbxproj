@@ -6,10 +6,6 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		759710072E43D52000AECF83 /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 759710062E43D52000AECF83 /* RealityKitContent */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXContainerItemProxy section */
 		7597101A2E43D52200AECF83 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,6 +17,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		75266E742E44140300E1D194 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
 		759710012E43D52000AECF83 /* scat5.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = scat5.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		759710052E43D52000AECF83 /* RealityKitContent */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = RealityKitContent; sourceTree = "<group>"; };
 		759710192E43D52200AECF83 /* scat5Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scat5Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,7 +54,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				759710072E43D52000AECF83 /* RealityKitContent in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,12 +67,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		75266E732E44140300E1D194 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				75266E742E44140300E1D194 /* RealityKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		75970FF82E43D52000AECF83 = {
 			isa = PBXGroup;
 			children = (
 				759710032E43D52000AECF83 /* scat5 */,
 				759710042E43D52000AECF83 /* Packages */,
 				7597101C2E43D52200AECF83 /* scat5Tests */,
+				75266E732E44140300E1D194 /* Frameworks */,
 				759710022E43D52000AECF83 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -118,7 +123,6 @@
 			);
 			name = scat5;
 			packageProductDependencies = (
-				759710062E43D52000AECF83 /* RealityKitContent */,
 			);
 			productName = scat5;
 			productReference = 759710012E43D52000AECF83 /* scat5.app */;
@@ -471,13 +475,6 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		759710062E43D52000AECF83 /* RealityKitContent */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = RealityKitContent;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 75970FF92E43D52000AECF83 /* Project object */;
 }

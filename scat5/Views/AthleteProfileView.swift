@@ -15,3 +15,13 @@ struct AthleteProfileView: View {
         .navigationTitle("Athlete Profile")
     }
 }
+
+#Preview {
+    let container = try! ModelContainer(for: Athlete.self)
+    let sampleAthlete = Athlete(name: "John Doe", dateOfBirth: Date(), sport: "Football")
+    
+    NavigationStack {
+        AthleteProfileView(athlete: sampleAthlete)
+    }
+    .modelContainer(container)
+}

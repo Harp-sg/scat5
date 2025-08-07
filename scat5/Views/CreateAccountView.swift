@@ -222,3 +222,8 @@ struct FormField<Content: View>: View {
         }
     }
 }
+
+#Preview {
+    CreateAccountView()
+        .environment(AuthService())
+}

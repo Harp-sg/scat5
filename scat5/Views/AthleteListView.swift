@@ -83,3 +83,13 @@ struct AddAthleteView: View {
         modelContext.insert(newAthlete)
     }
 }
+
+#Preview("Athlete List") {
+    AthleteListView()
+        .modelContainer(for: [Athlete.self])
+}
+
+#Preview("Add Athlete") {
+    AddAthleteView()
+        .modelContainer(for: [Athlete.self])
+}
