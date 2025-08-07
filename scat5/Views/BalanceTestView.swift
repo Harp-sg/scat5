@@ -16,81 +16,189 @@ struct BalanceTestView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header Section
+        VStack(spacing: 20) {
+            // Header with progress indicator
             VStack(spacing: 8) {
                 Text("Balance Assessment")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.primary, .primary.opacity(0.8)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                 
                 Text(currentStance.rawValue)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
-                    .multilineTextAlignment(.center)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                
+                // Progress indicator
+                HStack(spacing: 4) {
+                    ForEach(0..<BalanceStance.allCases.count, id: \.self) { index in
+                        Circle()
+                            .fill(index <= currentStanceIndex ? Color.blue : Color.gray.opacity(0.3))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                .padding(.top, 4)
             }
-            .padding(.top, 24)
-            .padding(.bottom, 16)
+            .padding(.top, 16)
             
-            // Timer Section
-            Text("Time Remaining: \(timerValue)s")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
-                .padding(.bottom, 32)
-            
-            // Error Counter Section
+            // Main content in a more balanced grid
             VStack(spacing: 16) {
-                Text("Errors: \(balanceResult.errorsByStance[currentStanceIndex])")
-                    .font(.system(size: 72, weight: .heavy))
-                    .foregroundColor(.white)
+                // Timer and Errors - more proportional
+                HStack(spacing: 16) {
+                    // Timer Card
+                    VStack(spacing: 8) {
+                        Text("Time Remaining")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        
+                        Text("\(timerValue)s")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.primary, .blue.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: .blue.opacity(0.3), radius: 6, x: 0, y: 3)
+                            .contentTransition(.numericText())
+                        
+                        // Timer progress bar
+                        ProgressView(value: Double(20 - timerValue), total: 20.0)
+                            .progressViewStyle(LinearProgressViewStyle(tint: .blue))
+                            .scaleEffect(x: 1, y: 1.5)
+                            .frame(height: 3)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(volumetricGlassBackground)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+                    
+                    // Error Card with visual error indicators
+                    VStack(spacing: 8) {
+                        Text("Balance Errors")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.secondary)
+                        
+                        Text("\(balanceResult.errorsByStance[currentStanceIndex])")
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [.primary, .red.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .shadow(color: .red.opacity(0.3), radius: 6, x: 0, y: 3)
+                            .contentTransition(.numericText())
+                        
+                        // Error dots visualization
+                        HStack(spacing: 2) {
+                            ForEach(0..<10, id: \.self) { index in
+                                Circle()
+                                    .fill(index < balanceResult.errorsByStance[currentStanceIndex] ? 
+                                          Color.red.opacity(0.8) : Color.gray.opacity(0.2))
+                                    .frame(width: 4, height: 4)
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .background(volumetricGlassBackground)
+                    .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
+                }
                 
+                // Add Error Button
                 Button("Add Error (+1)") {
-                    if balanceResult.errorsByStance[currentStanceIndex] < 10 {
-                        balanceResult.errorsByStance[currentStanceIndex] += 1
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        if balanceResult.errorsByStance[currentStanceIndex] < 10 {
+                            balanceResult.errorsByStance[currentStanceIndex] += 1
+                        }
                     }
                 }
-                .buttonStyle(AddErrorButtonStyle())
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(height: 44)
+                .frame(maxWidth: 200)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.red, .red.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.3), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.6), .white.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    }
+                )
+                .shadow(color: .red.opacity(0.4), radius: 10, x: 0, y: 5)
                 .disabled(balanceResult.errorsByStance[currentStanceIndex] >= 10)
-            }
-            .padding(.bottom, 40)
-            
-            // Motion Data Section
-            VStack(spacing: 12) {
-                Text("Live Head Sway Data")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
+                .buttonStyle(LiquidButtonStyle())
                 
-                HStack(spacing: 32) {
-                    MotionValueView(label: "Pitch", value: motionManager.pitch)
-                    MotionValueView(label: "Roll", value: motionManager.roll)
-                    MotionValueView(label: "Yaw", value: motionManager.yaw)
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 20)
-                .background(.white.opacity(0.08))
-                .cornerRadius(16)
-            }
-            .padding(.bottom, 40)
-            
-            Spacer()
-            
-            // Action Buttons
-            VStack(spacing: 12) {
-                if currentStanceIndex < BalanceStance.allCases.count - 1 && (timerValue < 20 || !isTimerRunning) {
-                    Button("Finish Balance Test") {
-                        onComplete()
+                // Motion Data - polished edges
+                VStack(spacing: 12) {
+                    Text("Live Motion Data")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primary)
+                        .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 0.5)
+                    
+                    HStack(spacing: 12) {
+                        motionValueView("Pitch", motionManager.pitch)
+                        motionValueView("Roll", motionManager.roll)
+                        motionValueView("Yaw", motionManager.yaw)
                     }
-                    .buttonStyle(FinishButtonStyle())
                 }
+                .padding(.vertical, 16)
+                .background(volumetricGlassBackground)
+                .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 6)
                 
-                Button(timerValue == 20 ? "Start 20s Trial" : (isTimerRunning ? "Pause Trial" : "Resume Trial")) {
-                    isTimerRunning.toggle()
+                // Control Buttons - fixed spacing
+                VStack(spacing: 12) {
+                    if currentStanceIndex < BalanceStance.allCases.count - 1 && (timerValue < 20 || !isTimerRunning) {
+                        liquidButton(
+                            "Finish Balance Test",
+                            color: .blue,
+                            action: { onComplete() }
+                        )
+                    }
+                    
+                    liquidButton(
+                        timerValue == 20 ? "Start 20s Trial" : (isTimerRunning ? "Pause Trial" : "Resume Trial"),
+                        color: isTimerRunning ? .red : .green,
+                        action: { isTimerRunning.toggle() }
+                    )
+                    .disabled(timerValue == 0)
+                    .opacity(timerValue == 0 ? 0.6 : 1.0)
                 }
-                .buttonStyle(StartButtonStyle(isActive: isTimerRunning))
-                .disabled(timerValue == 0)
+                .padding(.bottom, 20)
             }
-            .padding(.bottom, 32)
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: 500)
         .onAppear {
             motionManager.startUpdates()
         }
@@ -103,81 +211,165 @@ struct BalanceTestView: View {
                 timerValue -= 1
             } else {
                 isTimerRunning = false
-                // Auto-advance to next stance when timer completes
                 if currentStanceIndex < BalanceStance.allCases.count - 1 {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        currentStanceIndex += 1
-                        timerValue = 20
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            currentStanceIndex += 1
+                            timerValue = 20
+                        }
                     }
                 }
             }
         }
     }
-}
-
-// MARK: - Custom Button Styles
-
-struct AddErrorButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 12)
-            .background(.white.opacity(configuration.isPressed ? 0.1 : 0.15))
-            .cornerRadius(25)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-struct StartButtonStyle: ButtonStyle {
-    let isActive: Bool
     
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .bold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 14)
-            .background(isActive ? .red.opacity(0.8) : .green.opacity(0.8))
-            .cornerRadius(8)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-struct FinishButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
-            .padding(.horizontal, 28)
-            .padding(.vertical, 14)
-            .background(.blue.opacity(0.8))
-            .cornerRadius(8)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Motion Value View
-
-struct MotionValueView: View {
-    let label: String
-    let value: Double
+    // MARK: - Polished Glass Background
     
-    var body: some View {
-        VStack(spacing: 8) {
+    private var volumetricGlassBackground: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(.ultraThinMaterial)
+            
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    RadialGradient(
+                        colors: [.white.opacity(0.15), .clear],
+                        center: .topLeading,
+                        startRadius: 0,
+                        endRadius: 120
+                    )
+                )
+            
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [.white.opacity(0.5), .white.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1.5
+                )
+        }
+    }
+    
+    // MARK: - Polished Motion Value View
+    
+    private func motionValueView(_ label: String, _ value: Double) -> some View {
+        VStack(spacing: 4) {
             Text(label)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
+                .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 0.5)
             
             Text(String(format: "%.2f", value))
-                .font(.system(size: 28, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [.primary, .blue.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .shadow(color: .blue.opacity(0.3), radius: 4, x: 0, y: 2)
+                .contentTransition(.numericText())
         }
-        .frame(minWidth: 80)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.thinMaterial)
+                
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        RadialGradient(
+                            colors: [.white.opacity(0.2), .clear],
+                            center: .topLeading,
+                            startRadius: 0,
+                            endRadius: 80
+                        )
+                    )
+                
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [.white.opacity(0.15), .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [.white.opacity(0.4), .white.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            }
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+        .shadow(color: .white.opacity(0.05), radius: 4, x: 0, y: -2)
+    }
+    
+    // MARK: - Enhanced Liquid Glass Button
+    
+    private func liquidButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(height: 48)
+                .frame(maxWidth: .infinity)
+                .background(
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [color, color.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                        
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.35), .clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.7), .white.opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1.5
+                            )
+                    }
+                )
+                .shadow(color: color.opacity(0.4), radius: 12, x: 0, y: 6)
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                .shadow(color: .white.opacity(0.1), radius: 4, x: 0, y: -2)
+        }
+        .buttonStyle(LiquidButtonStyle())
+    }
+}
+
+// MARK: - Liquid Button Style
+
+struct LiquidButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .brightness(configuration.isPressed ? -0.1 : 0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: configuration.isPressed)
     }
 }
 
@@ -190,9 +382,6 @@ struct MotionValueView: View {
         balanceResult: sampleBalanceResult,
         onComplete: { print("Balance test completed") }
     )
-    .frame(width: 550, height: 600)
-    .background(.black.opacity(0.3))
     .glassBackgroundEffect()
-    .cornerRadius(20)
     .modelContainer(container)
 }

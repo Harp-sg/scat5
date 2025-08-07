@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum AppView {
+enum AppView: Equatable {
     case dashboard
     case testSelection(SessionType)
 }

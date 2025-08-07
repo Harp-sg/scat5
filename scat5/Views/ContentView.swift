@@ -1,67 +1,50 @@
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
     @Environment(AuthService.self) private var authService
-    @Environment(ViewRouter.self) private var viewRouter
     @Environment(AppViewModel.self) private var appViewModel
-
+    @Environment(ViewRouter.self) private var viewRouter
+    @Environment(\.modelContext) private var modelContext
+    
     var body: some View {
-        ZStack {
-            Group {
-                if authService.isAuthenticated {
-                    switch viewRouter.currentView {
-                    case .dashboard:
-                        MainDashboardView()
-                    case .testSelection(let sessionType):
-                        TestSelectionView(testType: sessionType)
-                    }
-                } else {
-                    LoginView()
+        // Main content based on authentication state and routing
+        Group {
+            if !authService.isAuthenticated {
+                LoginView()
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+            } else {
+                switch viewRouter.currentView {
+                case .dashboard:
+                    MainDashboardView()
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                case .testSelection(let sessionType):
+                    TestSelectionView(testType: sessionType)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
             }
-            .onAppear {
-                authService.setModelContext(modelContext)
-            }
-            .blur(radius: appViewModel.isImmersiveSpaceShown ? 2 : 0) // Very subtle blur
-            .scaleEffect(appViewModel.isImmersiveSpaceShown ? 0.99 : 1.0) // Almost no scale change
-            .opacity(appViewModel.isImmersiveSpaceShown ? 0.8 : 1.0) // Light dimming for integration
-
-            if appViewModel.isImmersiveSpaceShown {
-                Color.black.opacity(0.1) // Very light overlay - just enough to show focus
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-            }
         }
-        .animation(.easeInOut(duration: 0.4), value: appViewModel.isImmersiveSpaceShown)
+        .animation(.easeInOut(duration: 0.3), value: authService.isAuthenticated)
+        .animation(.easeInOut(duration: 0.3), value: viewRouter.currentView)
+        .onAppear {
+            // Set the model context for the auth service when the view appears
+            authService.setModelContext(modelContext)
+        }
     }
 }
 
-#Preview("Dashboard") {
-    ContentView()
-        .environment(AuthService())
-        .environment(ViewRouter())
-        .environment(AppViewModel())
-        .modelContainer(for: [
-            User.self,
-            TestSession.self,
-            SymptomResult.self,
-            CognitiveResult.self,
-            OrientationResult.self,
-            ConcentrationResult.self,
-            MemoryTrial.self,
-            NeurologicalResult.self,
-            BalanceResult.self
-        ])
+// Extension to provide glass background effect used throughout the app
+extension View {
+    func glassBackgroundEffect() -> some View {
+        self
+            .glassBackgroundEffect(in: RoundedRectangle(cornerRadius: 16))
+    }
 }
 
-#Preview("Login") {
+#Preview {
     ContentView()
-        .environment({
-            let authService = AuthService()
-            // Don't authenticate for login preview
-            return authService
-        }())
-        .environment(ViewRouter())
+        .environment(AuthService())
         .environment(AppViewModel())
+        .environment(ViewRouter())
+        .modelContainer(for: [User.self, TestSession.self, SymptomResult.self, CognitiveResult.self, OrientationResult.self, ConcentrationResult.self, MemoryTrial.self, NeurologicalResult.self, BalanceResult.self])
 }
