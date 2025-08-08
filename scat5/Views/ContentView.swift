@@ -11,8 +11,17 @@ struct ContentView: View {
         // Main content based on authentication state and routing
         Group {
             if !authService.isAuthenticated {
-                LoginView()
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                switch viewRouter.currentView {
+                case .login:
+                    LoginView()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .createAccount:
+                    CreateAccountView()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                default:
+                    LoginView()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
             } else {
                 switch viewRouter.currentView {
                 case .dashboard:
@@ -21,6 +30,12 @@ struct ContentView: View {
                 case .testSelection(let sessionType):
                     TestSelectionView(testType: sessionType)
                         .transition(.opacity.combined(with: .move(edge: .trailing)))
+                case .interactiveDiagnosis:
+                    InteractiveDiagnosisView()
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                default:
+                    MainDashboardView()
+                        .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
             }
         }

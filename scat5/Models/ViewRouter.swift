@@ -1,8 +1,11 @@
 import SwiftUI
 
 enum AppView: Equatable {
+    case login
+    case createAccount
     case dashboard
     case testSelection(SessionType)
+    case interactiveDiagnosis
 }
 
 @Observable

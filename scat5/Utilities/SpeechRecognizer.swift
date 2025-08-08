@@ -133,25 +133,11 @@ class SCAT5SpeechRecognizer: ObservableObject {
             ])
         }
         
-        // Create a proper recording format if needed - visionOS compatible
-        let recordingFormat: AVAudioFormat?
+        // Use the hardware's native format instead of forcing a specific format
+        print("Hardware input format: \(inputFormat)")
         
-        #if os(visionOS)
-        // visionOS may have different preferred formats
-        recordingFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false)
-        #else
-        recordingFormat = inputFormat.sampleRate == 16000 ? inputFormat :
-            AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 16000, channels: 1, interleaved: false)
-        #endif
-        
-        guard let format = recordingFormat else {
-            throw NSError(domain: "SCAT5SpeechRecognizer", code: -2, userInfo: [
-                NSLocalizedDescriptionKey: "Could not create recording format"
-            ])
-        }
-        
-        // Install tap with proper format handling
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+        // Install tap with the hardware's native format
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: inputFormat) { buffer, _ in
             request.append(buffer)
         }
         

@@ -9,7 +9,7 @@ struct DelayedRecallView: View {
     let onComplete: () -> Void
     
     @State private var viewState: DelayedRecallState = .initialInstructions
-    @State private var timeRemaining: Int = 300 // 5 minutes
+    @State private var timeRemaining: Int = 10 // 5 minutes
     @State private var countdownTimer: Timer?
     
     enum DelayedRecallState {

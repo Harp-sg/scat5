@@ -75,19 +75,18 @@ struct MainDashboardView: View {
                     .buttonStyle(VolumetricButtonStyle())
                     
                     Button(action: {
-                        viewRouter.navigate(to: .testSelection(.baseline))
+                        viewRouter.navigate(to: .interactiveDiagnosis)
                     }) {
                         SecondaryAssessmentCard(
-                            title: "Baseline\nAssessment",
-                            icon: "chart.line.uptrend.xyaxis",
-                            color: .green,
-                            description: "Establish normal performance"
+                            title: "Interactive\nDiagnosis",
+                            icon: "wand.and.rays",
+                            color: .gray,
+                            description: "AI-powered diagnostic tools"
                         )
                     }
                     .buttonStyle(VolumetricButtonStyle())
                 }
             }
-            .padding(.horizontal, 40)
             
             Spacer()
             
