@@ -88,6 +88,13 @@ struct FallbackTestView: View {
                             closeImmersiveSpace()
                         })
                     }
+                case .immediateMemory:
+                    if let cognitiveResult = session.cognitiveResult {
+                        ImmediateMemoryView(cognitiveResult: cognitiveResult, onComplete: {
+                            session.markModuleComplete(module.rawValue)
+                            closeImmersiveSpace()
+                        })
+                    }
                 case .balance:
                     if let balanceResult = session.balanceResult {
                         BalanceTestView(balanceResult: balanceResult, onComplete: {

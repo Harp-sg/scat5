@@ -10,6 +10,7 @@ final class CognitiveResult {
     var concentrationResult: ConcentrationResult?
     @Relationship(deleteRule: .cascade)
     var immediateMemoryTrials: [MemoryTrial] = []
+    var delayedRecallWordList: [String] = []
     var delayedRecalledWords: [String] = []
     var testSession: TestSession?
 
@@ -17,8 +18,8 @@ final class CognitiveResult {
         immediateMemoryTrials.reduce(0) { $0 + $1.score }
     }
     var delayedRecallScore: Int {
-        guard let wordList = immediateMemoryTrials.first?.words else { return 0 }
-        return Set(delayedRecalledWords).intersection(Set(wordList)).count
+        guard !delayedRecallWordList.isEmpty else { return 0 }
+        return Set(delayedRecalledWords).intersection(Set(delayedRecallWordList)).count
     }
 
     init(id: UUID = UUID()) {

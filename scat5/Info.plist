@@ -2,8 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSMotionUsageDescription</key>
-	<string>We need access to motion data to assess balance and stability during the SCAT5 test.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -21,5 +19,12 @@
 			</array>
 		</dict>
 	</dict>
+	
+	<!-- Privacy Usage Descriptions -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SCAT5 needs microphone access to record your verbal responses during memory recall tests. This is required for the cognitive assessment portion of the concussion evaluation.</string>
+	
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>SCAT5 uses speech recognition to automatically score your verbal responses during cognitive tests. This helps provide accurate and consistent assessment results.</string>
 </dict>
 </plist>
