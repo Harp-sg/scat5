@@ -1,0 +1,525 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		75282F502E4B7A7000F1C6BF /* RealityKitContent in Frameworks */ = {isa = PBXBuildFile; productRef = 75282F4F2E4B7A7000F1C6BF /* RealityKitContent */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7597101A2E43D52200AECF83 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 75970FF92E43D52000AECF83 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 759710002E43D52000AECF83;
+			remoteInfo = scat5;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		75266E742E44140300E1D194 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
+		759710012E43D52000AECF83 /* scat5.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = scat5.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		759710192E43D52200AECF83 /* scat5Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = scat5Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7597101F2E43D52200AECF83 /* Exceptions for "scat5" folder in "scat5" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Packages/RealityKitContent,
+				"Resources/Internal/balance and vvestibular.md",
+				Resources/Internal/balance.md,
+				Resources/Internal/concentration.md,
+				"Resources/Internal/data-model.md",
+				"Resources/Internal/delaayed-recaall.md",
+				"Resources/Internal/immediate-memory.md",
+				"Resources/Internal/module-engine.md",
+				Resources/Internal/Moving_Room.md,
+				Resources/Internal/neurological.md,
+				Resources/Internal/occular.md,
+				Resources/Internal/Occulometer.md,
+				Resources/Internal/orientation.md,
+				Resources/Internal/overview.md,
+				Resources/Internal/prd.md,
+				Resources/Internal/resource.md,
+				"Resources/Internal/results-summary.md",
+				"Resources/Internal/saccades fix.md",
+				"Resources/Internal/Saccades Test.md",
+				"Resources/Internal/Smooth Pursuit Test.md",
+				"Resources/Internal/speech integration.md",
+				Resources/Internal/VOR_balance.md,
+				"symptom-evaluation.md",
+				"sync-and-export.md",
+				"testing-validation.md",
+				"ui-guidelines.md",
+			);
+			target = 759710002E43D52000AECF83 /* scat5 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		759710032E43D52000AECF83 /* scat5 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7597101F2E43D52200AECF83 /* Exceptions for "scat5" folder in "scat5" target */,
+			);
+			path = scat5;
+			sourceTree = "<group>";
+		};
+		7597101C2E43D52200AECF83 /* scat5Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = scat5Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		75970FFE2E43D52000AECF83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				75282F502E4B7A7000F1C6BF /* RealityKitContent in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		759710162E43D52200AECF83 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		75266E732E44140300E1D194 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				75266E742E44140300E1D194 /* RealityKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		75970FF82E43D52000AECF83 = {
+			isa = PBXGroup;
+			children = (
+				759710032E43D52000AECF83 /* scat5 */,
+				7597101C2E43D52200AECF83 /* scat5Tests */,
+				75266E732E44140300E1D194 /* Frameworks */,
+				759710022E43D52000AECF83 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		759710022E43D52000AECF83 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				759710012E43D52000AECF83 /* scat5.app */,
+				759710192E43D52200AECF83 /* scat5Tests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		759710002E43D52000AECF83 /* scat5 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 759710202E43D52200AECF83 /* Build configuration list for PBXNativeTarget "scat5" */;
+			buildPhases = (
+				75970FFD2E43D52000AECF83 /* Sources */,
+				75970FFE2E43D52000AECF83 /* Frameworks */,
+				75970FFF2E43D52000AECF83 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				759710032E43D52000AECF83 /* scat5 */,
+			);
+			name = scat5;
+			packageProductDependencies = (
+				75282F4F2E4B7A7000F1C6BF /* RealityKitContent */,
+			);
+			productName = scat5;
+			productReference = 759710012E43D52000AECF83 /* scat5.app */;
+			productType = "com.apple.product-type.application";
+		};
+		759710182E43D52200AECF83 /* scat5Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 759710252E43D52200AECF83 /* Build configuration list for PBXNativeTarget "scat5Tests" */;
+			buildPhases = (
+				759710152E43D52200AECF83 /* Sources */,
+				759710162E43D52200AECF83 /* Frameworks */,
+				759710172E43D52200AECF83 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7597101B2E43D52200AECF83 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				7597101C2E43D52200AECF83 /* scat5Tests */,
+			);
+			name = scat5Tests;
+			packageProductDependencies = (
+			);
+			productName = scat5Tests;
+			productReference = 759710192E43D52200AECF83 /* scat5Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		75970FF92E43D52000AECF83 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1640;
+				LastUpgradeCheck = 1640;
+				TargetAttributes = {
+					759710002E43D52000AECF83 = {
+						CreatedOnToolsVersion = 16.4;
+					};
+					759710182E43D52200AECF83 = {
+						CreatedOnToolsVersion = 16.4;
+						TestTargetID = 759710002E43D52000AECF83;
+					};
+				};
+			};
+			buildConfigurationList = 75970FFC2E43D52000AECF83 /* Build configuration list for PBXProject "scat5" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 75970FF82E43D52000AECF83;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				75282F4E2E4B7A7000F1C6BF /* XCLocalSwiftPackageReference "../qaaa/Packages/RealityKitContent" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 759710022E43D52000AECF83 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				759710002E43D52000AECF83 /* scat5 */,
+				759710182E43D52200AECF83 /* scat5Tests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		75970FFF2E43D52000AECF83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		759710172E43D52200AECF83 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		75970FFD2E43D52000AECF83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		759710152E43D52200AECF83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7597101B2E43D52200AECF83 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 759710002E43D52000AECF83 /* scat5 */;
+			targetProxy = 7597101A2E43D52200AECF83 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		759710212E43D52200AECF83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SCAT5 needs microphone access to record your verbal responses during memory recall tests and for voice control commands. This is required for the cognitive assessment portion of the concussion evaluation.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "We need access to motion data to assess balance and stability during the SCAT5 test.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "SCAT5 uses speech recognition to automatically score your verbal responses during cognitive tests and to provide hands-free voice control navigation. This helps provide accurate and consistent assessment results.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.connect.scat5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Debug;
+		};
+		759710222E43D52200AECF83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "$(TARGET_NAME)/Info.plist";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "SCAT5 needs microphone access to record your verbal responses during memory recall tests and for voice control commands. This is required for the cognitive assessment portion of the concussion evaluation.";
+				INFOPLIST_KEY_NSMotionUsageDescription = "We need access to motion data to assess balance and stability during the SCAT5 test.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "SCAT5 uses speech recognition to automatically score your verbal responses during cognitive tests and to provide hands-free voice control navigation. This helps provide accurate and consistent assessment results.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.connect.scat5;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+			};
+			name = Release;
+		};
+		759710232E43D52200AECF83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = xros;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		759710242E43D52200AECF83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = xros;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+				XROS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		759710262E43D52200AECF83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.connect.scat5Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/scat5.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/scat5";
+				XROS_DEPLOYMENT_TARGET = 2.5;
+			};
+			name = Debug;
+		};
+		759710272E43D52200AECF83 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = J6JQ5RC8CW;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.connect.scat5Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 7;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/scat5.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/scat5";
+				XROS_DEPLOYMENT_TARGET = 2.5;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		75970FFC2E43D52000AECF83 /* Build configuration list for PBXProject "scat5" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				759710232E43D52200AECF83 /* Debug */,
+				759710242E43D52200AECF83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		759710202E43D52200AECF83 /* Build configuration list for PBXNativeTarget "scat5" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				759710212E43D52200AECF83 /* Debug */,
+				759710222E43D52200AECF83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		759710252E43D52200AECF83 /* Build configuration list for PBXNativeTarget "scat5Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				759710262E43D52200AECF83 /* Debug */,
+				759710272E43D52200AECF83 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		75282F4E2E4B7A7000F1C6BF /* XCLocalSwiftPackageReference "../qaaa/Packages/RealityKitContent" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../qaaa/Packages/RealityKitContent;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		75282F4F2E4B7A7000F1C6BF /* RealityKitContent */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RealityKitContent;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 75970FF92E43D52000AECF83 /* Project object */;
+}

@@ -1,0 +1,206 @@
+import SwiftUI
+import SwiftData
+
+struct StandaloneCognitiveTestView: View, TestController {
+    @Bindable var cognitiveResult: CognitiveResult
+    let onComplete: () -> Void
+    @Environment(SpeechControlCoordinator.self) private var speechCoordinator
+    @State private var currentQuestionIndex = 0
+    
+    // Cognitive screening questions with their answer types (same as CognitiveTestView)
+    private let cognitiveQuestions = [
+        ("What month is it?", CognitiveAnswerType.month),
+        ("What is the date today?", CognitiveAnswerType.date),
+        ("What is the day of the week?", CognitiveAnswerType.day),
+        ("What year is it?", CognitiveAnswerType.year),
+        ("What time is it right now? (within 1 hour)", CognitiveAnswerType.time)
+    ]
+    
+    enum CognitiveAnswerType {
+        case month, date, day, year, time
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header (similar to CognitiveTestView)
+            VStack(spacing: 12) {
+                HStack {
+                    Button(action: {
+                        // Navigate back to dashboard if needed
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("Dashboard")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundColor(.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        // Close action if needed
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
+                            .frame(width: 32, height: 32)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                
+                Text("Cognitive Screening")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Text("Question \(currentQuestionIndex + 1) of \(cognitiveQuestions.count)")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .padding(.bottom, 20)
+            }
+            
+            // Question Content (same layout as CognitiveTestView)
+            VStack(spacing: 32) {
+                // Question Text
+                Text(cognitiveQuestions[currentQuestionIndex].0)
+                    .font(.system(size: 20, weight: .medium))
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.primary)
+                    .padding(.horizontal, 20)
+                
+                // Answer Input (using the same input views as CognitiveTestView)
+                Group {
+                    let answerType = cognitiveQuestions[currentQuestionIndex].1
+                    switch answerType {
+                    case .month:
+                        MonthInputView(selectedAnswer: Binding(
+                            get: { getAnswer() },
+                            set: { setAnswer($0) }
+                        ), speechCoordinator: speechCoordinator)
+                    case .date:
+                        DateInputView(selectedAnswer: Binding(
+                            get: { getAnswer() },
+                            set: { setAnswer($0) }
+                        ), speechCoordinator: speechCoordinator)
+                    case .day:
+                        DayInputView(selectedAnswer: Binding(
+                            get: { getAnswer() },
+                            set: { setAnswer($0) }
+                        ), speechCoordinator: speechCoordinator)
+                    case .year:
+                        YearInputView(selectedAnswer: Binding(
+                            get: { getAnswer() },
+                            set: { setAnswer($0) }
+                        ), speechCoordinator: speechCoordinator)
+                    case .time:
+                        TimeInputView(selectedAnswer: Binding(
+                            get: { getAnswer() },
+                            set: { setAnswer($0) }
+                        ))
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+            
+            Spacer()
+            
+            // Navigation (same as CognitiveTestView)
+            HStack(spacing: 16) {
+                Button("Previous") {
+                    if currentQuestionIndex > 0 {
+                        currentQuestionIndex -= 1
+                    }
+                }
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.primary)
+                .frame(width: 120, height: 44)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                .disabled(currentQuestionIndex == 0)
+                .opacity(currentQuestionIndex == 0 ? 0.5 : 1.0)
+                .buttonStyle(.plain)
+                
+                Spacer()
+                
+                if currentQuestionIndex == cognitiveQuestions.count - 1 {
+                    Button("Complete Test") {
+                        onComplete()
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 140, height: 44)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+                    .buttonStyle(.plain)
+                } else {
+                    Button("Next Question") {
+                        currentQuestionIndex += 1
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 140, height: 44)
+                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+        }
+        .frame(width: 600, height: 520)
+        .glassBackgroundEffect()
+        .onAppear {
+            speechCoordinator.testController = self
+            
+            // Initialize storage using orientation result structure
+            if cognitiveResult.orientationResult == nil {
+                cognitiveResult.orientationResult = OrientationResult()
+            }
+        }
+        .onDisappear {
+            speechCoordinator.testController = nil
+        }
+    }
+    
+    private func getAnswer() -> String {
+        let question = cognitiveQuestions[currentQuestionIndex].0
+        
+        // Use the orientation result for storage since it has the same structure
+        if let orientationResult = cognitiveResult.orientationResult {
+            return orientationResult.answers[question] ?? ""
+        }
+        return ""
+    }
+    
+    private func setAnswer(_ answer: String) {
+        let question = cognitiveQuestions[currentQuestionIndex].0
+        
+        // Use the orientation result for storage
+        if cognitiveResult.orientationResult == nil {
+            cognitiveResult.orientationResult = OrientationResult()
+        }
+        cognitiveResult.orientationResult?.answers[question] = answer
+    }
+    
+    func executeCommand(_ command: VoiceCommand) {
+        switch command {
+        case .nextTrial:
+            if currentQuestionIndex < cognitiveQuestions.count - 1 {
+                currentQuestionIndex += 1
+            }
+        case .previousItem:
+            if currentQuestionIndex > 0 {
+                currentQuestionIndex -= 1
+            }
+        case .completeTest:
+            onComplete()
+        default:
+            break
+        }
+    }
+}

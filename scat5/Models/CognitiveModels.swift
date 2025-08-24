@@ -1,0 +1,55 @@
+import Foundation
+import SwiftData
+
+@Model
+final class CognitiveResult {
+    var id: UUID
+    @Relationship(deleteRule: .cascade)
+    var orientationResult: OrientationResult?
+    @Relationship(deleteRule: .cascade)
+    var concentrationResult: ConcentrationResult?
+    @Relationship(deleteRule: .cascade)
+    var immediateMemoryTrials: [MemoryTrial] = []
+    var delayedRecallWordList: [String] = []
+    var delayedRecalledWords: [String] = []
+    var testSession: TestSession?
+
+    var immediateMemoryTotalScore: Int {
+        immediateMemoryTrials.reduce(0) { $0 + $1.score }
+    }
+    var delayedRecallScore: Int {
+        guard !delayedRecallWordList.isEmpty else { return 0 }
+        return Set(delayedRecalledWords).intersection(Set(delayedRecallWordList)).count
+    }
+
+    init(id: UUID = UUID()) {
+        self.id = id
+        self.orientationResult = OrientationResult()
+        self.concentrationResult = ConcentrationResult()
+        let wordList = Self.getWordList()
+        self.immediateMemoryTrials = (1...3).map { MemoryTrial(trialNumber: $0, words: wordList) }
+    }
+    
+    static func getWordList() -> [String] {
+        ["Elbow", "Apple", "Carpet", "Saddle", "Bubble"]
+    }
+}
+
+@Model
+class MemoryTrial {
+    var id: UUID
+    var trialNumber: Int
+    var words: [String]
+    var recalledWords: [String]
+    
+    var score: Int {
+        Set(recalledWords).intersection(Set(words)).count
+    }
+    
+    init(id: UUID = UUID(), trialNumber: Int, words: [String], recalledWords: [String] = []) {
+        self.id = id
+        self.trialNumber = trialNumber
+        self.words = words
+        self.recalledWords = recalledWords
+    }
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSWorldSensingUsageDescription</key>
+	<string>Needed for Head tracking</string>
+	<key>NSHandsTrackingUsageDescription</key>
+	<string>This app uses hand tracking to enable interactive ball-catching games for concussion assessment and visual-motor coordination testing.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
