@@ -22,7 +22,7 @@ struct FallingBallCatchView: View {
     @State private var previewBalls: [FallingBallEntity] = []  // Balls visible before dropping
     @State private var ballSpawnTimer: Timer?
     @State private var gameUpdateTimer: Timer?
-    @State private var nextBallID = 0
+    @ gitState private var nextBallID = 0
     @State private var gameSpaceEntity: Entity?
     @State private var ballHolders: [Entity] = []  // Visual holders for preview balls
     
