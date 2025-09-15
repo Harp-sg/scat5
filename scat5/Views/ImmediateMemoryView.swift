@@ -207,14 +207,25 @@ private struct VoiceProxy: TestController {
 struct WordPresentationView: View {
     let words: [String]
     let onPresentationComplete: () -> Void
-    
+
     @State private var currentWordIndex = 0
     @State private var showGetReady = false
-    private let synthesizer = AVSpeechSynthesizer()
-    
+    @State private var synthesizer = AVSpeechSynthesizer()
+    @State private var isPresenting = false
+    @State private var audioSetupComplete = false
+    @State private var speakerDelegate = SpeakerDelegate()
+
     var body: some View {
         VStack(spacing: 40) {
-            if !showGetReady {
+            if !audioSetupComplete {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                    Text("Preparing audio...")
+                        .font(.system(size: 16))
+                        .foregroundColor(.secondary)
+                }
+            } else if !showGetReady {
                 if currentWordIndex < words.count {
                     Text(words[currentWordIndex])
                         .font(.system(size: 72, weight: .bold))
@@ -228,59 +239,113 @@ struct WordPresentationView: View {
                     Text("Get Ready to Recall...")
                         .font(.system(size: 36, weight: .medium))
                         .foregroundColor(.primary)
-                    
+
                     Text("Remember as many words as you can")
                         .font(.system(size: 16))
                         .foregroundColor(.secondary)
                 }
                 .transition(.opacity.animation(.easeInOut(duration: 0.3)))
             }
-            
-            // Progress indicator during presentation
-            if !showGetReady {
+
+            if audioSetupComplete && !showGetReady {
                 HStack(spacing: 8) {
                     ForEach(0..<words.count, id: \.self) { index in
                         Circle()
-                            .fill(index < currentWordIndex ? Color.green : 
-                                 index == currentWordIndex ? Color.blue : 
+                            .fill(index < currentWordIndex ? Color.green :
+                                 index == currentWordIndex ? Color.blue :
                                  Color.gray.opacity(0.3))
                             .frame(width: 12, height: 12)
                     }
                 }
             }
         }
-        .onAppear {
+        .task {
+            await setupAudioAndStart()
+        }
+        .onDisappear {
+            synthesizer.stopSpeaking(at: .immediate)
+            isPresenting = false
+            Task { await AudioManager.shared.deactivateAudioSession() }
+        }
+    }
+
+    private func setupAudioAndStart() async {
+        let success = await AudioManager.shared.requestAudioSession(for: .playback)
+        await MainActor.run {
+            audioSetupComplete = true
+        }
+        guard success else { return }
+
+        await MainActor.run {
+            // Ensure TTS uses our already-activated session
+            synthesizer.usesApplicationAudioSession = true
+        }
+
+        // PREWARM: issue a silent, very short utterance to warm TTS
+        await primeSynthesizer()
+
+        await MainActor.run {
             startPresentation()
         }
     }
-    
-    private func startPresentation() {
-        presentNextWord()
-    }
-    
-    private func presentNextWord() {
-        if currentWordIndex < words.count {
-            // Speak the current word
-            let utterance = AVSpeechUtterance(string: words[currentWordIndex])
-            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-            utterance.rate = 0.45
-            synthesizer.speak(utterance)
-            
-            // Move to next word after 1 second
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                withAnimation {
-                    if currentWordIndex < words.count - 1 {
-                        currentWordIndex += 1
-                        presentNextWord()
-                    } else {
-                        // All words presented, show "Get Ready" message
-                        showGetReady = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                            onPresentationComplete()
-                        }
-                    }
-                }
+
+    private func primeSynthesizer() async {
+        await withCheckedContinuation { continuation in
+            let u = AVSpeechUtterance(string: "a")
+            u.volume = 0.0                  // silent
+            u.rate = 0.5
+            u.preUtteranceDelay = 0
+            u.postUtteranceDelay = 0
+            synthesizer.speak(u)
+
+            // Give the pipeline a brief moment to spin up
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                continuation.resume()
             }
+        }
+    }
+
+    private func startPresentation() {
+        guard !isPresenting else { return }
+        isPresenting = true
+
+        // Queue utterances; UI will update when each starts (delegate)
+        for word in words {
+            let utterance = AVSpeechUtterance(string: word)
+            if let voice = AVSpeechSynthesisVoice(language: "en-US") {
+                utterance.voice = voice
+            }
+            utterance.rate = 0.45
+            utterance.volume = 1.0
+            utterance.pitchMultiplier = 1.0
+            utterance.preUtteranceDelay = 0
+            utterance.postUtteranceDelay = 0
+            synthesizer.speak(utterance)
+        }
+    }
+}
+
+final class SpeakerDelegate: NSObject, AVSpeechSynthesizerDelegate {
+    private var onStartWord: ((Int) -> Void)?
+    private var onAllFinished: (() -> Void)?
+    private var index: Int = -1
+    private var total: Int = 0
+
+    func configure(total: Int, onStartWord: @escaping (Int) -> Void, onAllFinished: @escaping () -> Void) {
+        self.total = total
+        self.index = -1
+        self.onStartWord = onStartWord
+        self.onAllFinished = onAllFinished
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        index += 1
+        onStartWord?(index)
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        if index == total - 1 {
+            onAllFinished?()
         }
     }
 }
@@ -297,6 +362,8 @@ struct FreeRecallView: View, TestController {
     @State private var recallTimeRemaining = 30
     @State private var recallTimer: Timer?
     @State private var hasStarted = false
+    @State private var setupComplete = false
+    @State private var isSetupInProgress = false
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
     
     var body: some View {
@@ -312,13 +379,37 @@ struct FreeRecallView: View, TestController {
                     .animation(.easeInOut, value: recallTimeRemaining)
             }
             
-            // Error message display
+            // Setup status
+            if isSetupInProgress {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .scaleEffect(1.2)
+                    Text("Setting up microphone...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Error message display with retry option
             if let errorMessage = speechTranscriptionManager.errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 14))
-                    .foregroundColor(.red)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
+                VStack(spacing: 12) {
+                    Text(errorMessage)
+                        .font(.system(size: 14))
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                    
+                    Button("Retry Speech Setup") {
+                        Task {
+                            await restartSpeechRecognition()
+                        }
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.blue)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                }
             }
             
             // Word slots - show progress as words are recalled
@@ -350,43 +441,47 @@ struct FreeRecallView: View, TestController {
             Spacer()
             
             // Speech recognition interface
-            VStack(spacing: 16) {
-                Button(action: {
-                    toggleRecording()
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                            .frame(width: 120, height: 120)
-                            .shadow(color: isRecording ? .red.opacity(0.5) : .blue.opacity(0.3), radius: 12)
-                        
-                        Image(systemName: isRecording ? "mic.slash.fill" : "mic.fill")
-                            .font(.system(size: 48))
-                            .foregroundColor(isRecording ? .red : .blue)
-                        
-                        if isRecording {
+            if setupComplete {
+                VStack(spacing: 16) {
+                    Button(action: {
+                        Task {
+                            await toggleRecording()
+                        }
+                    }) {
+                        ZStack {
                             Circle()
-                                .stroke(Color.red, lineWidth: 3)
+                                .fill(.ultraThinMaterial)
                                 .frame(width: 120, height: 120)
-                                .opacity(0.8)
+                                .shadow(color: isRecording ? .red.opacity(0.5) : .blue.opacity(0.3), radius: 12)
+                            
+                            Image(systemName: isRecording ? "mic.slash.fill" : "mic.fill")
+                                .font(.system(size: 48))
+                                .foregroundColor(isRecording ? .red : .blue)
+                            
+                            if isRecording {
+                                Circle()
+                                    .stroke(Color.red, lineWidth: 3)
+                                    .frame(width: 120, height: 120)
+                                    .opacity(0.8)
+                            }
                         }
                     }
-                }
-                .buttonStyle(.plain)
-                .scaleEffect(isRecording ? 1.05 : 1.0)
-                .animation(.easeInOut(duration: 0.2), value: isRecording)
-                
-                Text(isRecording ? "Listening... Speak clearly" : "Tap to start speaking")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-                
-                if !speechTranscriptionManager.transcript.isEmpty {
-                    Text("Heard: \(speechTranscriptionManager.transcript)")
-                        .font(.system(size: 12))
+                    .buttonStyle(.plain)
+                    .scaleEffect(isRecording ? 1.05 : 1.0)
+                    .animation(.easeInOut(duration: 0.2), value: isRecording)
+                    
+                    Text(isRecording ? "Listening... Speak clearly" : "Tap to start speaking")
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundColor(.secondary)
-                        .padding(.horizontal)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(3)
+                    
+                    if !speechTranscriptionManager.transcript.isEmpty {
+                        Text("Heard: \(speechTranscriptionManager.transcript)")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(3)
+                    }
                 }
             }
             
@@ -402,6 +497,9 @@ struct FreeRecallView: View, TestController {
             .padding(.vertical, 16)
             .background(Color.blue, in: RoundedRectangle(cornerRadius: 16))
             .buttonStyle(.plain)
+        }
+        .task {
+            await initializeSpeechRecognition()
         }
         .onAppear {
             startRecallTimer()
@@ -419,16 +517,66 @@ struct FreeRecallView: View, TestController {
     func executeCommand(_ command: VoiceCommand) {
         switch command {
         case .startRecording, .startTest:
-            if !isRecording { toggleRecording() }
+            if setupComplete && !isRecording { 
+                Task { await toggleRecording() }
+            }
         case .stopRecording:
-            if isRecording { toggleRecording() }
+            if isRecording { 
+                Task { await toggleRecording() }
+            }
         case .completeTest, .nextTrial:
             completeRecall()
         default: break
         }
     }
     
+    private func initializeSpeechRecognition() async {
+        guard !isSetupInProgress else { return }
+        await MainActor.run {
+            isSetupInProgress = true
+        }
+
+        // Use centralized audio session to avoid conflicts
+        let success = await AudioManager.shared.requestAudioSession(for: .recording)
+        guard success else {
+            await MainActor.run {
+                speechTranscriptionManager.errorMessage = "Failed to get microphone access"
+                isSetupInProgress = false
+                setupComplete = false
+            }
+            return
+        }
+
+        await MainActor.run {
+            speechTranscriptionManager = SpeechTranscriptionManager()
+        }
+
+        // Small warm-up to ensure tap delivers buffers
+        try? await Task.sleep(nanoseconds: 700_000_000)
+
+        await MainActor.run {
+            setupComplete = speechTranscriptionManager.errorMessage == nil
+            isSetupInProgress = false
+            print(setupComplete ? "✅ Speech recognition ready" : "❌ Speech recognition failed")
+        }
+    }
+    
+    private func restartSpeechRecognition() async {
+        await MainActor.run {
+            isSetupInProgress = true
+            setupComplete = false
+        }
+        
+        // Stop current recognition if running
+        await speechTranscriptionManager.stopTranscribing()
+        isRecording = false
+        
+        // Re-initialize
+        await initializeSpeechRecognition()
+    }
+    
     private func startRecallTimer() {
+        recallTimer?.invalidate() // Ensure no duplicate timers
         recallTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             if recallTimeRemaining > 0 {
                 recallTimeRemaining -= 1
@@ -438,23 +586,24 @@ struct FreeRecallView: View, TestController {
         }
     }
     
-    private func toggleRecording() {
-        guard speechTranscriptionManager.errorMessage == nil else {
+    private func toggleRecording() async {
+        guard setupComplete else {
+            print("⚠️ Speech recognition not ready yet")
             return
         }
         
         if isRecording {
-            Task {
-                await speechTranscriptionManager.stopTranscribing()
+            await speechTranscriptionManager.stopTranscribing()
+            await MainActor.run {
+                isRecording = false
             }
-            isRecording = false
         } else {
-            Task {
-                await speechTranscriptionManager.startTranscribing()
-            }
-            isRecording = true
-            if !hasStarted {
-                hasStarted = true
+            await speechTranscriptionManager.startTranscribing()
+            await MainActor.run {
+                isRecording = true
+                if !hasStarted {
+                    hasStarted = true
+                }
             }
         }
     }
@@ -473,6 +622,7 @@ struct FreeRecallView: View, TestController {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                             recalledWordsSet.insert(originalWord)
                         }
+                        print("✅ Recognized word: \(originalWord)")
                     }
                 }
             }
@@ -490,6 +640,8 @@ struct FreeRecallView: View, TestController {
         recallTimer = nil
         Task {
             await speechTranscriptionManager.stopTranscribing()
+            // Relinquish audio session
+            await AudioManager.shared.deactivateAudioSession()
         }
         isRecording = false
     }

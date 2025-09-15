@@ -52,13 +52,24 @@ struct TestSelectionView: View, CarouselController {
             print("TestSelectionView disappeared - cleaning up speech control")
             speechCoordinator.carouselController = nil
         }
-        .simultaneousGesture(
-            DragGesture().onChanged { _ in
-                // Mute speech commands during manual drag
-                speechCoordinator.isUserInteracting = true
-            }.onEnded { _ in
+        .onChange(of: selectedIndex) { oldValue, newValue in
+            // Debounce rapid changes to prevent multiple updates per frame
+            if oldValue != newValue {
                 speechCoordinator.isUserInteracting = false
             }
+        }
+        .simultaneousGesture(
+            DragGesture()
+                .onChanged { _ in
+                    // Mute speech commands during manual drag
+                    speechCoordinator.isUserInteracting = true
+                }
+                .onEnded { _ in
+                    // Use a small delay to prevent immediate state changes
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        speechCoordinator.isUserInteracting = false
+                    }
+                }
         )
     }
     
@@ -106,9 +117,18 @@ struct TestSelectionView: View, CarouselController {
         print("Voice command selected module: \(module.rawValue)")
         appViewModel.currentModule = module
         appViewModel.currentSession = currentSession
+        
+        // Prevent multiple rapid selections
+        guard !appViewModel.isImmersiveSpaceShown else {
+            print("⚠️ Immersive space already shown, ignoring selection")
+            return
+        }
+        
         Task {
             await openImmersiveSpace(id: "TestImmersiveSpace")
-            appViewModel.isImmersiveSpaceShown = true
+            await MainActor.run {
+                appViewModel.isImmersiveSpaceShown = true
+            }
         }
     }
 
@@ -267,11 +287,20 @@ struct TestSelectionView: View, CarouselController {
                 Button(action: {
                     if selectedIndex == index {
                         print("Module card tapped: \(module.rawValue)")
+                        
+                        // Prevent multiple rapid taps
+                        guard !appViewModel.isImmersiveSpaceShown else {
+                            print("⚠️ Immersive space already shown, ignoring tap")
+                            return
+                        }
+                        
                         appViewModel.currentModule = module
                         appViewModel.currentSession = currentSession
                         Task {
                             await openImmersiveSpace(id: "TestImmersiveSpace")
-                            appViewModel.isImmersiveSpaceShown = true
+                            await MainActor.run {
+                                appViewModel.isImmersiveSpaceShown = true
+                            }
                         }
                     } else {
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {

@@ -8,7 +8,9 @@ class SpeechTranscriptionManager {
     var transcript: String = ""
     var errorMessage: String?
     var isTranscribing: Bool = false
-    
+
+    private let forceLegacyAPI = true
+
     // Modern API properties (iOS 26.0+)
     @available(iOS 26.0, visionOS 26.0, *)
     private var speechAnalyzer: SpeechAnalyzer?
@@ -43,12 +45,15 @@ class SpeechTranscriptionManager {
     
     // MARK: - Setup
     private func setupSpeechTranscription() async {
-        // Request authorization
         guard await requestSpeechAuthorization() else {
             return
         }
-        
-        // Try modern API first
+
+        if forceLegacyAPI {
+            setupLegacyTranscription()
+            return
+        }
+
         if #available(iOS 26.0, visionOS 26.0, *) {
             await setupModernTranscription()
         } else {
@@ -129,7 +134,12 @@ class SpeechTranscriptionManager {
     // MARK: - Public Interface
     func startTranscribing() async {
         guard !isTranscribing else { return }
-        
+
+        if forceLegacyAPI {
+            await startLegacyTranscription()
+            return
+        }
+
         if usingModernAPI {
             if #available(iOS 26.0, visionOS 26.0, *) {
                 await startModernTranscription()
@@ -141,7 +151,12 @@ class SpeechTranscriptionManager {
     
     func stopTranscribing() async {
         guard isTranscribing else { return }
-        
+
+        if forceLegacyAPI {
+            await stopLegacyTranscription()
+            return
+        }
+
         if usingModernAPI {
             if #available(iOS 26.0, visionOS 26.0, *) {
                 await stopModernTranscription()
@@ -230,16 +245,56 @@ class SpeechTranscriptionManager {
     
     @available(iOS 26.0, visionOS 26.0, *)
     private func startAudioCapture(format: AVAudioFormat, inputBuilder: AsyncStream<AnalyzerInput>.Continuation) async throws {
-        let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        
         let audioEngine = AVAudioEngine()
         let inputNode = audioEngine.inputNode
         
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            let input = AnalyzerInput(buffer: buffer)
-            inputBuilder.yield(input)
+        // Remove any existing taps first
+        inputNode.removeTap(onBus: 0)
+        
+        // Use a compatible format that works with Vision Pro
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        print("🎵 Modern API - Input format: \(inputFormat)")
+        print("🎯 Modern API - Required format: \(format)")
+        
+        // Create a working format - use input sample rate but target channels/bit depth
+        let workingFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: inputFormat.sampleRate, // Use hardware sample rate
+            channels: min(inputFormat.channelCount, format.channelCount),
+            interleaved: false
+        )!
+        
+        print("🔧 Modern API - Working format: \(workingFormat)")
+        
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: workingFormat) { buffer, _ in
+            // Convert to required format if needed
+            if workingFormat.sampleRate == format.sampleRate && 
+               workingFormat.channelCount == format.channelCount {
+                let input = AnalyzerInput(buffer: buffer)
+                inputBuilder.yield(input)
+            } else {
+                // Create converter for format mismatch
+                if let converter = AVAudioConverter(from: workingFormat, to: format) {
+                    let capacity = AVAudioFrameCount(Double(buffer.frameLength) * format.sampleRate / workingFormat.sampleRate)
+                    if let convertedBuffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) {
+                        var error: NSError?
+                        converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+                            outStatus.pointee = .haveData
+                            return buffer
+                        }
+                        if error == nil {
+                            let input = AnalyzerInput(buffer: convertedBuffer)
+                            inputBuilder.yield(input)
+                        } else {
+                            print("❌ Audio conversion error: \(error!)")
+                        }
+                    }
+                } else {
+                    // Fallback: use original buffer
+                    let input = AnalyzerInput(buffer: buffer)
+                    inputBuilder.yield(input)
+                }
+            }
         }
         
         audioEngine.prepare()
@@ -308,48 +363,66 @@ class SpeechTranscriptionManager {
         legacyRecognitionRequest = nil
         legacyRecognitionTask = nil
         
+        // Properly clean up audio session
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("⚠️ Failed to deactivate audio session: \(error)")
+        }
+        
         await MainActor.run {
             self.isTranscribing = false
         }
     }
-    
+
     private func startLegacySpeechRecognition() async throws {
         legacyRecognitionTask?.cancel()
         legacyRecognitionTask = nil
-        
+
         let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth])
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        
+
+        do {
+            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            try audioSession.setCategory(.record, mode: .default, options: [])
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        }
+
         legacyRecognitionRequest = SFSpeechAudioBufferRecognitionRequest()
         guard let recognitionRequest = legacyRecognitionRequest else {
             throw TranscriptionError.failedToCreateRequest
         }
-        
+
         recognitionRequest.shouldReportPartialResults = true
         recognitionRequest.requiresOnDeviceRecognition = false
-        
+
         let inputNode = legacyAudioEngine.inputNode
         inputNode.removeTap(onBus: 0)
-        
-        let recordingFormat = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
-        
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
+            guard buffer.frameLength > 0 else { return }
             recognitionRequest.append(buffer)
+            if self?.isTranscribing == false {
+                // no-op, just ensures manager stays alive
+            }
         }
-        
+
         legacyAudioEngine.prepare()
         try legacyAudioEngine.start()
-        
+
         legacyRecognitionTask = legacySpeechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             Task { @MainActor in
-                if let result = result {
+                if let result {
                     self?.transcript = result.bestTranscription.formattedString
                 }
-                
-                if let error = error {
+                if let error {
                     print("Speech recognition error: \(error)")
-                    self?.errorMessage = "Recognition error occurred"
+                    // Don't show transient errors
+                    if (error as NSError).code != 216 {
+                        self?.errorMessage = "Recognition error occurred"
+                    }
                 }
             }
         }

@@ -56,32 +56,59 @@ struct ContentView: View {
             // Set the model context for the auth service when the view appears
             authService.setModelContext(modelContext)
         }
-        .onChange(of: viewRouter.currentView) { _, newView in
+        .onChange(of: viewRouter.currentView) { oldValue, newValue in
+            // Prevent rapid successive changes that cause performance issues
+            guard oldValue != newValue else { return }
+            
             // Update speech coordinator context when view changes
-            updateSpeechContext(for: newView)
+            updateSpeechContext(for: newValue)
+        }
+        .task {
+            // Handle any startup errors gracefully
+            do {
+                try await setupApplicationState()
+            } catch {
+                print("⚠️ Application setup error: \(error)")
+                // Handle setup errors gracefully - don't crash the app
+            }
         }
     }
     
+    private func setupApplicationState() async throws {
+        // Initialize any required services that might fail
+        // This prevents crashes during app startup
+        
+        // Ensure speech coordinator is properly initialized with a valid context
+        speechCoordinator.currentViewContext = .dashboard
+    }
+    
     private func updateSpeechContext(for view: AppView) {
+        // Add safety checks to prevent crashes
+        guard speechCoordinator.currentViewContext != contextForView(view) else { return }
+        
+        speechCoordinator.currentViewContext = contextForView(view)
+    }
+    
+    private func contextForView(_ view: AppView) -> ViewContext {
         switch view {
         case .dashboard:
-            speechCoordinator.currentViewContext = .dashboard
+            return .dashboard
         case .testSelection:
-            speechCoordinator.currentViewContext = .testSelection
+            return .testSelection
         case .interactiveDiagnosis:
-            speechCoordinator.currentViewContext = .interactiveDiagnosis
+            return .interactiveDiagnosis
         case .aiSymptomAnalyzer:
-            speechCoordinator.currentViewContext = .aiSymptomAnalyzer
+            return .aiSymptomAnalyzer
         case .voicePatternAssessment:
-            speechCoordinator.currentViewContext = .voicePatternAssessment
+            return .voicePatternAssessment
         case .eyeMovementTracking:
-            speechCoordinator.currentViewContext = .eyeMovementTracking
+            return .eyeMovementTracking
         case .balancePrediction:
-            speechCoordinator.currentViewContext = .balancePrediction
+            return .balancePrediction
         case .riskFactorAnalysis:
-            speechCoordinator.currentViewContext = .riskFactorAnalysis
+            return .riskFactorAnalysis
         default:
-            speechCoordinator.currentViewContext = .dashboard
+            return .dashboard
         }
     }
 }

@@ -20,6 +20,11 @@ struct StandaloneCognitiveTestView: View, TestController {
         case month, date, day, year, time
     }
     
+    private var safeQuestionIndex: Int {
+        guard !cognitiveQuestions.isEmpty else { return 0 }
+        return max(0, min(currentQuestionIndex, cognitiveQuestions.count - 1))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header (similar to CognitiveTestView)
@@ -61,7 +66,7 @@ struct StandaloneCognitiveTestView: View, TestController {
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundColor(.primary)
                 
-                Text("Question \(currentQuestionIndex + 1) of \(cognitiveQuestions.count)")
+                Text("Question \(safeQuestionIndex + 1) of \(cognitiveQuestions.count)")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
                     .padding(.bottom, 20)
@@ -70,7 +75,7 @@ struct StandaloneCognitiveTestView: View, TestController {
             // Question Content (same layout as CognitiveTestView)
             VStack(spacing: 32) {
                 // Question Text
-                Text(cognitiveQuestions[currentQuestionIndex].0)
+                Text(cognitiveQuestions[safeQuestionIndex].0)
                     .font(.system(size: 20, weight: .medium))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.primary)
@@ -78,7 +83,7 @@ struct StandaloneCognitiveTestView: View, TestController {
                 
                 // Answer Input (using the same input views as CognitiveTestView)
                 Group {
-                    let answerType = cognitiveQuestions[currentQuestionIndex].1
+                    let answerType = cognitiveQuestions[safeQuestionIndex].1
                     switch answerType {
                     case .month:
                         MonthInputView(selectedAnswer: Binding(
@@ -165,10 +170,15 @@ struct StandaloneCognitiveTestView: View, TestController {
         .onDisappear {
             speechCoordinator.testController = nil
         }
+        .onChange(of: currentQuestionIndex) { oldValue, newValue in
+            if cognitiveQuestions.isEmpty { currentQuestionIndex = 0; return }
+            if newValue < 0 { currentQuestionIndex = 0 }
+            if newValue >= cognitiveQuestions.count { currentQuestionIndex = cognitiveQuestions.count - 1 }
+        }
     }
     
     private func getAnswer() -> String {
-        let question = cognitiveQuestions[currentQuestionIndex].0
+        let question = cognitiveQuestions[safeQuestionIndex].0
         
         // Use the orientation result for storage since it has the same structure
         if let orientationResult = cognitiveResult.orientationResult {
@@ -178,7 +188,7 @@ struct StandaloneCognitiveTestView: View, TestController {
     }
     
     private func setAnswer(_ answer: String) {
-        let question = cognitiveQuestions[currentQuestionIndex].0
+        let question = cognitiveQuestions[safeQuestionIndex].0
         
         // Use the orientation result for storage
         if cognitiveResult.orientationResult == nil {
