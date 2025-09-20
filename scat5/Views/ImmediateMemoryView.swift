@@ -6,6 +6,7 @@ import Speech
 struct ImmediateMemoryView: View, TestController {
     @Bindable var cognitiveResult: CognitiveResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
     
     @State private var currentTrialIndex = 0
     @State private var viewState: MemoryViewState = .instructions
@@ -21,11 +22,26 @@ struct ImmediateMemoryView: View, TestController {
     
     var body: some View {
         VStack(spacing: 20) {
-            // Header
+            // Header with skip button
             VStack(spacing: 12) {
-                Text("Immediate Memory")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(.primary)
+                HStack {
+                    Text("Immediate Memory")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    if let onSkip = onSkip {
+                        Button("Skip Module") {
+                            onSkip()
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
                 
                 if viewState != .instructions {
                     Text("Trial \(currentTrialIndex + 1) of 3")
@@ -120,6 +136,8 @@ struct ImmediateMemoryView: View, TestController {
             }
         case .completeTest:
             onComplete()
+        case .skipModule:
+            onSkip?()
         case .nextTrial:
             if viewState == .trialComplete {
                 if currentTrialIndex < 2 {
@@ -264,6 +282,7 @@ struct WordPresentationView: View {
         }
         .onDisappear {
             synthesizer.stopSpeaking(at: .immediate)
+            synthesizer.delegate = nil
             isPresenting = false
             Task { await AudioManager.shared.deactivateAudioSession() }
         }
@@ -277,13 +296,30 @@ struct WordPresentationView: View {
         guard success else { return }
 
         await MainActor.run {
-            // Ensure TTS uses our already-activated session
             synthesizer.usesApplicationAudioSession = true
+
+            // Configure delegate to drive UI and completion
+            speakerDelegate.configure(
+                total: words.count,
+                onStartWord: { idx in
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        self.currentWordIndex = idx
+                    }
+                },
+                onAllFinished: {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        self.showGetReady = true
+                    }
+                    // Reduced delay since we now handle timing in the delegate
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        self.onPresentationComplete()
+                    }
+                }
+            )
+            synthesizer.delegate = speakerDelegate
         }
 
-        // PREWARM: issue a silent, very short utterance to warm TTS
         await primeSynthesizer()
-
         await MainActor.run {
             startPresentation()
         }
@@ -292,13 +328,12 @@ struct WordPresentationView: View {
     private func primeSynthesizer() async {
         await withCheckedContinuation { continuation in
             let u = AVSpeechUtterance(string: "a")
-            u.volume = 0.0                  // silent
+            u.volume = 0.0
             u.rate = 0.5
             u.preUtteranceDelay = 0
             u.postUtteranceDelay = 0
             synthesizer.speak(u)
 
-            // Give the pipeline a brief moment to spin up
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
                 continuation.resume()
             }
@@ -308,8 +343,8 @@ struct WordPresentationView: View {
     private func startPresentation() {
         guard !isPresenting else { return }
         isPresenting = true
+        currentWordIndex = 0
 
-        // Queue utterances; UI will update when each starts (delegate)
         for word in words {
             let utterance = AVSpeechUtterance(string: word)
             if let voice = AVSpeechSynthesisVoice(language: "en-US") {
@@ -319,7 +354,7 @@ struct WordPresentationView: View {
             utterance.volume = 1.0
             utterance.pitchMultiplier = 1.0
             utterance.preUtteranceDelay = 0
-            utterance.postUtteranceDelay = 0
+            utterance.postUtteranceDelay = 0.35
             synthesizer.speak(utterance)
         }
     }
@@ -345,7 +380,11 @@ final class SpeakerDelegate: NSObject, AVSpeechSynthesizerDelegate {
 
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         if index == total - 1 {
-            onAllFinished?()
+            // Add a delay to account for the post-utterance delay of the last word
+            // The postUtteranceDelay is 0.35 seconds, so we wait a bit longer to be safe
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                self.onAllFinished?()
+            }
         }
     }
 }
@@ -697,7 +736,8 @@ struct TrialCompleteView: View, TestController {
     
     ImmediateMemoryView(
         cognitiveResult: sampleCognitiveResult,
-        onComplete: { print("Immediate memory completed") }
+        onComplete: { print("Immediate memory completed") },
+        onSkip: { print("Immediate memory skipped") }
     )
     .glassBackgroundEffect()
     .modelContainer(container)

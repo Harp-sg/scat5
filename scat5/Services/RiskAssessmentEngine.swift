@@ -48,8 +48,18 @@ struct RiskAssessmentEngine {
 }
 
 /// Represents the qualitative risk level determined from a Z-score.
-enum RiskLevel: String, Codable {
+enum RiskLevel: String, Codable, CaseIterable, Sendable {
+    case normal = "Normal"
     case low = "Low Risk"
     case moderate = "Moderate Risk"
     case high = "High Risk"
+    
+    var color: String {
+        switch self {
+        case .normal: return "green"
+        case .low: return "yellow"
+        case .moderate: return "orange"
+        case .high: return "red"
+        }
+    }
 }

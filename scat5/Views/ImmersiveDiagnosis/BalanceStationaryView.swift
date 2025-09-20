@@ -71,6 +71,9 @@ struct BalanceStationaryView: View {
     @State private var results: TestResults?
     @State private var showResults = false
 
+    // Add motion manager for balance sensor data
+    @State private var motionManager = MotionManager()
+
     var body: some View {
         RealityView { content, attachments in
             // Scene
@@ -96,10 +99,10 @@ struct BalanceStationaryView: View {
                 content.add(anchor)
             }
             
-            // Exit button
+            // Exit button - repositioned closer
             if let exit = attachments.entity(for: "exit") {
                 let anchor = AnchorEntity(.head)
-                exit.position = [0.8, 0.4, -1.2]
+                exit.position = [0.4, 0.4, -1.2]  // Moved closer from 0.8 to 0.4
                 exit.components.set(BillboardComponent())
                 anchor.addChild(exit)
                 content.add(anchor)
@@ -140,47 +143,88 @@ struct BalanceStationaryView: View {
                                     .multilineTextAlignment(.center)
                                     .foregroundColor(.secondary)
                                 
-                                Picker("Difficulty", selection: $difficultyLevel) {
-                                    ForEach(DifficultyLevel.allCases, id: \.self) { 
-                                        Text($0.rawValue).tag($0) 
+                                // Replace finicky segmented picker with individual buttons
+                                VStack(spacing: 12) {
+                                    Text("Difficulty Level")
+                                        .font(.headline)
+                                    
+                                    HStack(spacing: 12) {
+                                        ForEach(DifficultyLevel.allCases, id: \.self) { level in
+                                            Button {
+                                                difficultyLevel = level
+                                                applyDifficulty(level)
+                                                walkingSpeed = level.autoSpeed
+                                            } label: {
+                                                Text(level.rawValue)
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(difficultyLevel == level ? .white : .primary)
+                                                    .frame(width: 65, height: 40)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(difficultyLevel == level ? Color.green : Color.gray.opacity(0.2))
+                                                    )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
                                     }
                                 }
-                                .pickerStyle(.segmented)
-                                .frame(width: 280)
-                                .onChange(of: difficultyLevel) { _, new in 
-                                    applyDifficulty(new)
-                                    walkingSpeed = new.autoSpeed
-                                }
 
-                                VStack(alignment: .leading, spacing: 4) {
+                                // Replace finicky slider with +/- buttons
+                                VStack(spacing: 8) {
                                     Text("Walking Speed: \(String(format: "%.1f", walkingSpeed)) m/s")
-                                        .font(.caption)
-                                    Slider(value: $walkingSpeed, in: 0.2...1.5, step: 0.1)
-                                        .frame(width: 260)
+                                        .font(.system(size: 16, weight: .medium))
+                                    
+                                    HStack(spacing: 12) {
+                                        Button("-0.1") {
+                                            walkingSpeed = max(0.2, walkingSpeed - 0.1)
+                                        }
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .frame(width: 50, height: 36)
+                                        .background(Color.blue, in: RoundedRectangle(cornerRadius: 6))
+                                        .buttonStyle(.plain)
+                                        
+                                        Text("\(String(format: "%.1f", walkingSpeed))")
+                                            .font(.system(size: 18, weight: .bold))
+                                            .frame(width: 60)
+                                        
+                                        Button("+0.1") {
+                                            walkingSpeed = min(1.5, walkingSpeed + 0.1)
+                                        }
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundColor(.white)
+                                        .frame(width: 50, height: 36)
+                                        .background(Color.blue, in: RoundedRectangle(cornerRadius: 6))
+                                        .buttonStyle(.plain)
+                                    }
                                 }
                                 
-                                Text("• Width: \(Int(difficultyLevel.plankWidth * 100))cm")
-                                    .font(.caption2)
-                                Text("• Height: \(Int(difficultyLevel.plankHeight))m")
-                                    .font(.caption2)
-                                if difficultyLevel.swayEnabled {
-                                    Text("• Plank sway enabled")
-                                        .font(.caption2)
-                                        .foregroundColor(.orange)
+                                // Difficulty info - better formatted
+                                VStack(spacing: 4) {
+                                    Text("• Width: \(Int(difficultyLevel.plankWidth * 100))cm")
+                                        .font(.caption)
+                                    Text("• Height: \(Int(difficultyLevel.plankHeight))m")
+                                        .font(.caption)
+                                    if difficultyLevel.swayEnabled {
+                                        Text("• Plank sway enabled")
+                                            .font(.caption)
+                                            .foregroundColor(.orange)
+                                            .fontWeight(.medium)
+                                    }
                                 }
+                                .foregroundColor(.secondary)
                             }
 
                             Button {
                                 startTest()
                             } label: {
                                 Label("Start Stationary Test", systemImage: "figure.stand")
-                                    .font(.title3)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.green)
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .frame(width: 280, height: 50)
+                                    .background(Color.green, in: RoundedRectangle(cornerRadius: 12))
                                     .foregroundColor(.white)
-                                    .cornerRadius(12)
                             }
+                            .buttonStyle(.plain)
                             .frame(width: 280)
                         } else {
                             // During test
@@ -195,7 +239,7 @@ struct BalanceStationaryView: View {
                                 Text("\(Int(progress*100))% Complete")
                                     .font(.caption)
 
-                                // Live balance feedback
+                                // Live balance feedback with motion sensor data
                                 VStack(spacing: 6) {
                                     Text("Balance Status")
                                         .font(.headline)
@@ -203,18 +247,59 @@ struct BalanceStationaryView: View {
                                     let devX = currentDeviationFromPlankCenterX()
                                     let devZ = currentDeviationZ()
                                     
-                                    HStack {
-                                        Text("L-R:")
-                                        Text("\(Int(abs(devX) * 100))cm")
-                                            .foregroundColor(balanceColor(abs(devX)))
-                                            .fontWeight(.bold)
+                                    // Position deviation
+                                    HStack(spacing: 16) {
+                                        VStack {
+                                            Text("L-R:")
+                                                .font(.caption)
+                                            Text("\(Int(abs(devX) * 100))cm")
+                                                .foregroundColor(balanceColor(abs(devX)))
+                                                .fontWeight(.bold)
+                                        }
+                                        
+                                        VStack {
+                                            Text("F-B:")
+                                                .font(.caption)
+                                            Text("\(Int(abs(devZ) * 100))cm")
+                                                .foregroundColor(balanceColor(abs(devZ)))
+                                                .fontWeight(.bold)
+                                        }
                                     }
                                     
-                                    HStack {
-                                        Text("F-B:")
-                                        Text("\(Int(abs(devZ) * 100))cm")
-                                            .foregroundColor(balanceColor(abs(devZ)))
-                                            .fontWeight(.bold)
+                                    Divider()
+                                    
+                                    // Motion sensor data
+                                    Text("Motion Sensors")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.blue)
+                                    
+                                    HStack(spacing: 12) {
+                                        VStack {
+                                            Text("Pitch")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.pitch))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
+                                        
+                                        VStack {
+                                            Text("Roll")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.roll))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
+                                        
+                                        VStack {
+                                            Text("Yaw")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.yaw))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
                                     }
                                     
                                     if isNearEdge {
@@ -232,21 +317,23 @@ struct BalanceStationaryView: View {
                                         isAutoWalking.toggle()
                                     } label: {
                                         Image(systemName: isAutoWalking ? "pause.fill" : "play.fill")
-                                            .frame(width: 50, height: 40)
-                                            .background(Color.orange)
+                                            .font(.system(size: 18))
+                                            .frame(width: 60, height: 45)
+                                            .background(Color.orange, in: RoundedRectangle(cornerRadius: 10))
                                             .foregroundColor(.white)
-                                            .cornerRadius(8)
                                     }
+                                    .buttonStyle(.plain)
                                     
                                     Button {
                                         stopTest()
                                     } label: {
                                         Text("Stop")
-                                            .frame(width: 80, height: 40)
-                                            .background(Color.red)
+                                            .font(.system(size: 16, weight: .medium))
+                                            .frame(width: 80, height: 45)
+                                            .background(Color.red, in: RoundedRectangle(cornerRadius: 10))
                                             .foregroundColor(.white)
-                                            .cornerRadius(8)
                                     }
+                                    .buttonStyle(.plain)
                                 }
                             }
                         }
@@ -326,10 +413,11 @@ struct BalanceStationaryView: View {
                                 )
                             }
                         }
-                        .padding()
-                        .background(Color.blue)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 140, height: 45)
+                        .background(Color.blue, in: RoundedRectangle(cornerRadius: 10))
                         .foregroundColor(.white)
-                        .cornerRadius(10)
+                        .buttonStyle(.plain)
                     }
                     .padding()
                     .frame(width: 400)
@@ -359,11 +447,13 @@ struct BalanceStationaryView: View {
             }
         }
         .onAppear { 
-            startHeadPose() 
+            startHeadPose()
+            motionManager.startUpdates()  // Add motion updates
             walkingSpeed = difficultyLevel.autoSpeed
         }
         .onDisappear { 
             stopHeadPose()
+            motionManager.stopUpdates()  // Stop motion updates
             stopTest() 
         }
     }
@@ -395,20 +485,23 @@ struct BalanceStationaryView: View {
         let e = Entity()
         let mesh = MeshResource.generateBox(width: plankWidth, height: 0.05, depth: plankLength)
         var mat = SimpleMaterial()
-        mat.color = .init(tint: UIColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1))
-        mat.roughness = 0.8; mat.metallic = 0.1
+        // Make plank more visible but not overwhelming
+        mat.color = .init(tint: UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 0.9))
+        mat.roughness = 0.6; mat.metallic = 0.3
         e.addChild(ModelEntity(mesh: mesh, materials: [mat]))
 
-        let edgeMat = SimpleMaterial(color: UIColor.red.withAlphaComponent(0.8), isMetallic: false)
-        let edgeH: Float = 0.02, edgeW: Float = 0.01
+        // More prominent edge markers for safety
+        let edgeMat = SimpleMaterial(color: UIColor.red.withAlphaComponent(0.9), isMetallic: false)
+        let edgeH: Float = 0.03, edgeW: Float = 0.02
         let left  = ModelEntity(mesh: .generateBox(width: edgeW, height: edgeH, depth: plankLength), materials: [edgeMat])
         let right = ModelEntity(mesh: .generateBox(width: edgeW, height: edgeH, depth: plankLength), materials: [edgeMat])
         left.position  = [-plankWidth/2, 0.03, 0]
         right.position = [ plankWidth/2, 0.03, 0]
         e.addChild(left); e.addChild(right)
 
-        let center = ModelEntity(mesh: .generateBox(width: 0.02, height: 0.001, depth: plankLength),
-                                 materials: [SimpleMaterial(color: .white.withAlphaComponent(0.5), isMetallic: false)])
+        // More visible center line
+        let center = ModelEntity(mesh: .generateBox(width: 0.03, height: 0.002, depth: plankLength),
+                                 materials: [SimpleMaterial(color: .white.withAlphaComponent(0.9), isMetallic: false)])
         center.position.y = 0.026
         e.addChild(center)
         return e
@@ -425,30 +518,19 @@ struct BalanceStationaryView: View {
     }
 
     private func createVoid(in root: Entity) {
-        let void = ModelEntity(mesh: .generatePlane(width: 50, depth: 50),
-                               materials: [SimpleMaterial(color: .black, isMetallic: false)])
-        void.position.y = -plankHeight
-        void.orientation = simd_quatf(angle: -.pi/2, axis: [1,0,0])
-        root.addChild(void)
-        for i in 1...5 {
-            let mist = ModelEntity(mesh: .generatePlane(width: 30, depth: 30),
-                                   materials: [SimpleMaterial(color: UIColor.gray.withAlphaComponent(0.1), isMetallic: false)])
-            mist.position.y = -Float(i) * 2
-            mist.orientation = simd_quatf(angle: -.pi/2, axis: [1,0,0])
-            root.addChild(mist)
+        // Just keep minimal reference elements if needed
+        
+        // Optional: Just a few very small reference markers at plank level instead
+        for i in stride(from: -2, through: 2, by: 2) {
+            let marker = ModelEntity(mesh: .generateSphere(radius: 0.02),
+                                   materials: [SimpleMaterial(color: .blue.withAlphaComponent(0.3), isMetallic: false)])
+            marker.position = [Float(i), -plankHeight + 0.1, 0]
+            root.addChild(marker)
         }
     }
 
     private func createAtmosphere(in root: Entity) {
-        for _ in 0..<20 {
-            let cube = ModelEntity(mesh: .generateBox(size: 0.5),
-                                   materials: [SimpleMaterial(color: UIColor.white.withAlphaComponent(0.3), isMetallic: false)])
-            cube.position = [Float.random(in: -10...10), Float.random(in: -plankHeight...5), Float.random(in: -10...10)]
-            if abs(cube.position.x) < 2 && abs(cube.position.z) < plankLength/2 + 2 {
-                cube.position.x = cube.position.x < 0 ? -3 : 3
-            }
-            root.addChild(cube)
-        }
+        // Keep the environment completely clean - just the plank
     }
 
     // MARK: Test Control

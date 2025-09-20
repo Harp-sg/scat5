@@ -19,8 +19,10 @@ struct scat5App: App {
                 .environment(speechCoordinator)
                 .modelContainer(sharedModelContainer)
                 .overlay {
-                    SpeechControlOverlay()
-                        .environment(speechManager)
+                    if !appViewModel.isTextEntryActive {
+                        SpeechControlOverlay()
+                            .environment(speechManager)
+                    }
                 }
                 .onAppear {
                     speechCoordinator.setDependencies(viewRouter: viewRouter, appViewModel: appViewModel)
@@ -33,6 +35,8 @@ struct scat5App: App {
                 .environment(appViewModel)
                 .environment(speechCoordinator)
                 .environment(speechManager)
+                .environment(authService)
+                .environment(viewRouter)
                 .modelContainer(sharedModelContainer)
         }
         .immersionStyle(selection: .constant(.mixed), in: .mixed)

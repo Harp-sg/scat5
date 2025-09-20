@@ -6,6 +6,7 @@ import SwiftData
 class AuthService {
     var currentUser: User?
     var isAuthenticated: Bool { currentUser != nil }
+    var isEmergencyMode: Bool = false
     
     private var modelContext: ModelContext?
     
@@ -122,8 +123,24 @@ class AuthService {
         }
     }
     
+    func emergencyLogin() {
+        // Do not persist this user; it is only for the current app session
+        let emergencyUser = User(
+            username: "Emergency-\(UUID().uuidString.prefix(6))",
+            password: "",
+            firstName: "Emergency",
+            lastName: "User",
+            dateOfBirth: Date.distantPast,
+            sport: "N/A"
+        )
+        self.currentUser = emergencyUser
+        self.isEmergencyMode = true
+        // Do NOT storeUserSession here
+    }
+    
     func logout() {
         currentUser = nil
+        isEmergencyMode = false
         // Clear the stored session
         clearStoredSession()
     }

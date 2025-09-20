@@ -4,6 +4,7 @@ import SwiftData
 struct BalanceTestView: View, TestController {
     @Bindable var balanceResult: BalanceResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
 
     @State private var motionManager = MotionManager()
     @State private var currentStanceIndex = 0
@@ -18,17 +19,32 @@ struct BalanceTestView: View, TestController {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Header with progress indicator
+            // Header with progress indicator and skip button
             VStack(spacing: 8) {
-                Text("Balance Assessment")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.primary, .primary.opacity(0.8)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                HStack {
+                    Text("Balance Assessment")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.primary, .primary.opacity(0.8)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
+                    
+                    Spacer()
+                    
+                    if let onSkip = onSkip {
+                        Button("Skip Module") {
+                            onSkip()
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
                 
                 Text(currentStance.rawValue)
                     .font(.system(size: 14, weight: .medium))
@@ -274,6 +290,9 @@ struct BalanceTestView: View, TestController {
         case .completeTest:
             print("🎤 Completing balance test")
             onComplete()
+        case .skipModule:
+            print("🎤 Skipping balance test")
+            onSkip?()
         case .resetTest:
             print("🎤 Resetting current stance")
             withAnimation(.easeInOut) {
@@ -458,7 +477,8 @@ struct LiquidButtonStyle: ButtonStyle {
     
     return BalanceTestView(
         balanceResult: sampleBalanceResult,
-        onComplete: { print("Balance test completed") }
+        onComplete: { print("Balance test completed") },
+        onSkip: { print("Balance test skipped") }
     )
     .glassBackgroundEffect()
     .modelContainer(container)

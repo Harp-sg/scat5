@@ -16,10 +16,16 @@ struct SmoothPursuitScene: View {
     var body: some View {
         PursuitRealityView(config: config, controller: controller, hud: $hud)
         .task {
+            controller.startMotionTracking()  // Start motion tracking
             await runTestSequence()
         }
         .animation(.easeInOut, value: hud.headHintVisible)
         .animation(.easeInOut, value: hud.phase)
+        .onDisappear {
+            Task { @MainActor in
+                controller.stopTracking()
+            }
+        }
     }
 
     private func runTestSequence() async {
@@ -82,6 +88,42 @@ private struct PursuitRealityView: View {
                             StatChip(title: "Breaks", value: "\(controller.metrics.currentBreaks)",
                                      color: controller.metrics.currentBreaks < 3 ? .green : .orange)
                         }
+                        
+                        Divider()
+                        
+                        // Motion sensor data
+                        Text("Motion Sensors")
+                            .font(.caption.bold())
+                            .foregroundColor(.blue)
+                        
+                        HStack(spacing: 12) {
+                            VStack {
+                                Text("Pitch")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(String(format: "%.2f", controller.motionData.pitch))
+                                    .font(.caption.bold())
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            VStack {
+                                Text("Roll")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(String(format: "%.2f", controller.motionData.roll))
+                                    .font(.caption.bold())
+                                    .foregroundColor(.primary)
+                            }
+                            
+                            VStack {
+                                Text("Yaw")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Text(String(format: "%.2f", controller.motionData.yaw))
+                                    .font(.caption.bold())
+                                    .foregroundColor(.primary)
+                            }
+                        }
                     }
                     .padding(12)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -138,7 +180,7 @@ private struct PursuitRealityView: View {
                             )
                         }
                     }
-                    .focusEffectDisabled(false)        // allow focus now
+                    .focusEffectDisabled(false)
                 } else {
                     Color.clear.frame(width: 1, height: 1)
                 }
@@ -146,7 +188,7 @@ private struct PursuitRealityView: View {
             
             // Exit – hide or disable during run
             Attachment(id: "exitButton") {
-                if hud.isRunning {
+                if hud.isRunning || hud.resultsSummary != nil {
                     Color.clear.frame(width: 1, height: 1)
                         .focusEffectDisabled(true)
                         .allowsHitTesting(false)
@@ -165,7 +207,7 @@ private struct PursuitRealityView: View {
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
-                    .focusable(true) // only when NOT running
+                    .focusable(true)
                 }
             }
         }
@@ -219,7 +261,7 @@ private struct PursuitRealityView: View {
         
         if let instructions = attachments.entity(for: "instructionsHUD") {
             instructions.components.set(BillboardComponent()) // Always face user
-            instructions.position = [-0.6, 0.4, depth]
+            instructions.position = [-0.3, 0.3, depth]  // Moved closer from -0.6 to -0.3
             headAnchor.addChild(instructions) // Changed: attach to head anchor
             print("✅ Instructions HUD positioned")
         }
@@ -247,7 +289,7 @@ private struct PursuitRealityView: View {
         
         if let exitBtn = attachments.entity(for: "exitButton") {
             exitBtn.components.set(BillboardComponent())
-            exitBtn.position = [0.6, 0.4, depth]
+            exitBtn.position = [0.3, 0.3, depth]  // Moved closer from 0.6 to 0.3
             headAnchor.addChild(exitBtn) // Changed: attach to head anchor
             print("✅ Exit button positioned")
         }
@@ -270,10 +312,17 @@ final class SmoothPursuitController: ObservableObject {
 
     private var session: ARKitSession?
     private var worldTracking: WorldTrackingProvider?
+    private var headTrackingTask: Task<Void, Never>?
     
+    // Add motion manager for sensor data
+    private var motionManager = MotionManager()
+
     @Published var shouldPause = false
     @Published var currentProgress: Double = 0.0
     @Published var testPhase: String = ""
+    
+    // Add motion data properties
+    @Published var motionData: (pitch: Double, roll: Double, yaw: Double) = (0, 0, 0)
 
     var metrics = Metrics()
 
@@ -289,7 +338,9 @@ final class SmoothPursuitController: ObservableObject {
     }
 
     deinit {
-        // Clean up
+        Task { @MainActor in
+            self.stopTracking()
+        }
     }
 
     func startHeadTracking(config: PursuitConfig, onUpdate: @escaping (_ axis: SegmentKind?, _ still: Bool, _ event: Bool) -> Void) {
@@ -298,12 +349,13 @@ final class SmoothPursuitController: ObservableObject {
         self.session = session
         self.worldTracking = world
 
-        Task {
+        headTrackingTask = Task {
             do {
                 try await session.run([world])
                 var initialRotation: simd_quatf?
 
                 for await update in world.anchorUpdates {
+                    if Task.isCancelled { break }
                     guard let device = update.anchor as? DeviceAnchor else { continue }
                     let q = simd_quatf(device.originFromAnchorTransform)
 
@@ -425,6 +477,34 @@ final class SmoothPursuitController: ObservableObject {
             }
             try? await Task.sleep(nanoseconds: stepNS)
         }
+    }
+
+    func stopTracking() {
+        headTrackingTask?.cancel()
+        headTrackingTask = nil
+        session?.stop()
+        session = nil
+        worldTracking = nil
+        stopMotionTracking()  // Add motion tracking cleanup
+    }
+    
+    func startMotionTracking() {
+        motionManager.startUpdates()
+        
+        // Update motion data periodically
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            Task { @MainActor in
+                self.motionData = (
+                    pitch: self.motionManager.pitch,
+                    roll: self.motionManager.roll, 
+                    yaw: self.motionManager.yaw
+                )
+            }
+        }
+    }
+    
+    func stopMotionTracking() {
+        motionManager.stopUpdates()
     }
 }
 

@@ -7,6 +7,7 @@ import Speech
 struct DelayedRecallView: View {
     @Bindable var cognitiveResult: CognitiveResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
     
     @State private var viewState: DelayedRecallState = .initialInstructions
     @State private var timeRemaining: Int = 10 // 5 minutes
@@ -23,7 +24,35 @@ struct DelayedRecallView: View {
     
     var body: some View {
         VStack(spacing: 20) {
-            HeaderView(viewState: viewState, timeRemaining: timeRemaining)
+            // Header with skip button
+            VStack(spacing: 12) {
+                HStack {
+                    Text("Delayed Recall")
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    if let onSkip = onSkip {
+                        Button("Skip Module") {
+                            onSkip()
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }
+                
+                if viewState == .countdown {
+                    Text("Memorization period. Please wait \(timeRemaining / 60):\(String(format: "%02d", timeRemaining % 60))")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .padding(.top, 24)
             
             Spacer()
             
@@ -92,27 +121,6 @@ struct DelayedRecallView: View {
 }
 
 // MARK: - State-Specific Subviews
-
-private struct HeaderView: View {
-    let viewState: DelayedRecallView.DelayedRecallState
-    let timeRemaining: Int
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("Delayed Recall")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.primary)
-            
-            if viewState == .countdown {
-                Text("Memorization period. Please wait \(timeRemaining / 60):\(String(format: "%02d", timeRemaining % 60))")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-        }
-        .padding(.top, 24)
-    }
-}
 
 private struct InitialInstructionsView: View, TestController {
     let onStart: () -> Void
@@ -509,7 +517,8 @@ private struct DelayedRecallTest: View, TestController {
     
     return DelayedRecallView(
         cognitiveResult: sampleCognitiveResult,
-        onComplete: { print("Delayed recall completed") }
+        onComplete: { print("Delayed recall completed") },
+        onSkip: { print("Delayed recall skipped") }
     )
     .glassBackgroundEffect()
     .modelContainer(container)

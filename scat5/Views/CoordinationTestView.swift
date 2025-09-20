@@ -4,14 +4,31 @@ import SwiftData
 struct CoordinationTestView: View, TestController {
     @Bindable var neuroResult: NeurologicalResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
     @State private var page = 0
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
 
     var body: some View {
         VStack {
-            Text("Neurological & Coordination Exam")
-                .font(.largeTitle)
-                .padding()
+            HStack {
+                Text("Neurological & Coordination Exam")
+                    .font(.largeTitle)
+                    .padding()
+                
+                Spacer()
+                
+                if let onSkip = onSkip {
+                    Button("Skip Module") {
+                        onSkip()
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.trailing, 16)
+                }
+            }
             
             TabView(selection: $page) {
                 NeckExamView(neuroResult: neuroResult)
@@ -54,6 +71,8 @@ struct CoordinationTestView: View, TestController {
             if page > 0 { page -= 1 }
         case .completeTest:
             onComplete()
+        case .skipModule:
+            onSkip?()
         case .markCorrect:
             toggleCurrentTestResult(to: true)
         case .markIncorrect:
@@ -184,7 +203,8 @@ struct TandemGaitExamView: View {
     
     return CoordinationTestView(
         neuroResult: sampleNeuroResult,
-        onComplete: { print("Coordination test completed") }
+        onComplete: { print("Coordination test completed") },
+        onSkip: { print("Coordination test skipped") }
     )
     .frame(width: 550, height: 600)
     .background(.black.opacity(0.3))

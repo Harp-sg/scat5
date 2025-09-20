@@ -127,9 +127,10 @@ final class TestSession {
     
     // Progress tracking
     var completedModules: [String] = []
+    var skippedModules: [String] = []
     
     var progressPercentage: Double {
-        let totalModules = 5.0 // Symptom, Cognitive, Coordination, Balance, Delayed Recall
+        let totalModules = 6.0 // All 6 SCAT5 modules: Symptoms, Cognitive, Immediate Memory, Balance, Coordination, Delayed Recall
         return Double(completedModules.count) / totalModules
     }
     
@@ -150,8 +151,16 @@ final class TestSession {
         checkIfSessionComplete()
     }
     
+    func markModuleSkipped(_ moduleName: String) {
+        if !skippedModules.contains(moduleName) {
+            skippedModules.append(moduleName)
+        }
+        // Also mark as completed for progress tracking
+        markModuleComplete(moduleName)
+    }
+    
     private func checkIfSessionComplete() {
-        isComplete = completedModules.count >= 5
+        isComplete = completedModules.count >= 6 // All 6 modules must be completed
     }
 }
 

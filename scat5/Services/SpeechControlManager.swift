@@ -25,13 +25,19 @@ class SpeechControlManager {
     private var recognitionTask: Task<Void, Never>?
     private let audioEngine = AVAudioEngine()
     private var commandProcessor: CommandProcessor
-    
+    private var isTapInstalled = false
+
     // Add these to track speech analyzer lifecycle
     private var currentAnalyzer: SpeechAnalyzer?
     private var currentTranscriber: SpeechTranscriber?
     private var streamContinuation: AsyncStream<AnalyzerInput>.Continuation?
     private var isCleaningUp = false
-    
+
+    // Legacy SFSpeechRecognizer fallback
+    private var legacyRecognizer: SFSpeechRecognizer?
+    private var legacyRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var legacyTask: SFSpeechRecognitionTask?
+
     init() {
         self.commandProcessor = CommandProcessor()
         requestPermissions()
@@ -159,35 +165,38 @@ class SpeechControlManager {
         // 2. Stop and clean up analyzer with explicit disposal
         if let analyzer = currentAnalyzer {
             print("🎤 Disposing of current analyzer...")
-            // The analyzer should be disposed by setting it to nil and letting ARC handle it
-            // But we need to ensure any ongoing operations complete first
             currentAnalyzer = nil
         }
         
         // 3. Clean up transcriber
         currentTranscriber = nil
+
+        // 4a. Stop legacy recognition if active
+        legacyTask?.cancel()
+        legacyTask = nil
+        legacyRequest?.endAudio()
+        legacyRequest = nil
+        legacyRecognizer = nil
         
-        // 4. Stop audio engine
+        // 4b. Stop audio engine and safely remove tap if installed
         if audioEngine.isRunning {
             audioEngine.stop()
-            if audioEngine.inputNode.numberOfInputs > 0 {
-                audioEngine.inputNode.removeTap(onBus: 0)
-            }
         }
+        if isTapInstalled {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+        audioEngine.reset()
         
         // 5. Clean up audio session
-        do {
-            try AVAudioSession.sharedInstance().setActive(false)
-        } catch {
-            print("❌ Error deactivating audio session: \(error)")
-        }
+        await AudioManager.shared.deactivateAudioSession()
         
         await MainActor.run {
             isListening = false
         }
         
         // 6. Wait a bit to ensure system cleanup
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+        try? await Task.sleep(nanoseconds: 200_000_000)
         
         isCleaningUp = false
         print("🎤 Cleanup complete")
@@ -201,137 +210,22 @@ class SpeechControlManager {
                 return
             }
             
-            // 1. Configure Audio Session with better settings for speech
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            
-            // Set preferred sample rate for better quality
-            try audioSession.setPreferredSampleRate(16000.0)
-            try audioSession.setPreferredIOBufferDuration(0.2) // 200ms for better latency/quality balance
-            
-            print("🎤 Audio session configured - Sample rate: \(audioSession.sampleRate), Buffer duration: \(audioSession.ioBufferDuration)")
-            
-            // 2. Check if SpeechAnalyzer is available (visionOS 26+)
-            guard #available(visionOS 26.0, iOS 26.0, *) else {
+            // Request and activate audio session via AudioManager
+            let sessionReady = await AudioManager.shared.requestAudioSession(for: .recording)
+            guard sessionReady else {
                 await MainActor.run {
-                    self.errorMessage = "SpeechAnalyzer requires visionOS 26 or later"
-                    print("❌ SpeechAnalyzer not available on this OS version")
+                    self.errorMessage = "Unable to activate audio session for recording"
+                    self.isEnabled = false
                 }
                 return
             }
             
-            // 3. Setup Transcriber with optimized settings for command recognition
-            let transcriber = SpeechTranscriber(
-                locale: Locale(identifier: "en-US"),
-                transcriptionOptions: [], // Use empty set for default transcription
-                reportingOptions: [.volatileResults, .fastResults],
-                attributeOptions: []
-            )
-            
-            let analyzer = SpeechAnalyzer(modules: [transcriber])
-            
-            // Store references ONLY after successful creation
-            currentTranscriber = transcriber
-            currentAnalyzer = analyzer
-            
-            print("🎤 Created new analyzer and transcriber with on-device processing")
-            
-            // 4. Get optimal audio format from the system
-            guard let requiredFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
-                throw NSError(domain: "SpeechError", code: 2, userInfo: [NSLocalizedDescriptionKey: "No compatible audio format found for the speech analyzer."])
+            // Try modern path first (visionOS 26+), else fallback to legacy SFSpeechRecognizer
+            if #available(visionOS 26.0, iOS 26.0, *) {
+                try await runModernAnalyzer()
+            } else {
+                await runLegacyRecognizer()
             }
-            
-            print("🎤 System optimal format: \(requiredFormat)")
-            
-            // 5. Prepare Audio Pipeline with better buffer management
-            let (stream, continuation) = AsyncStream<AnalyzerInput>.makeStream()
-            streamContinuation = continuation
-            
-            let inputNode = audioEngine.inputNode
-            let inputFormat = inputNode.outputFormat(forBus: 0)
-            
-            print("🎤 Audio engine input format: \(inputFormat)")
-            
-            // Use larger buffer size for better quality (0.2 seconds as recommended)
-            let bufferSize = AVAudioFrameCount(requiredFormat.sampleRate * 0.2)
-            
-            // Create high-quality converter
-            guard let converter = AVAudioConverter(from: inputFormat, to: requiredFormat) else {
-                throw NSError(domain: "SpeechError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
-            }
-            
-            // Configure converter for better quality
-            converter.sampleRateConverterQuality = 2 // Max quality (0=min, 1=medium, 2=max)
-            
-            inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] buffer, time in
-                guard let self = self, let continuation = self.streamContinuation else { return }
-                
-                // Create output buffer with proper capacity
-                let outputCapacity = AVAudioFrameCount(Double(buffer.frameLength) * requiredFormat.sampleRate / inputFormat.sampleRate) + 1
-                guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: requiredFormat, frameCapacity: outputCapacity) else {
-                    print("❌ Could not create output buffer")
-                    return
-                }
-                
-                var error: NSError?
-                let status = converter.convert(to: outputBuffer, error: &error) { inNumPackets, outStatus in
-                    outStatus.pointee = .haveData
-                    return buffer
-                }
-                
-                if status == .haveData || status == .endOfStream {
-                    // Only send non-empty buffers
-                    if outputBuffer.frameLength > 0 {
-                        continuation.yield(AnalyzerInput(buffer: outputBuffer))
-                    }
-                } else {
-                    print("❌ Buffer conversion failed with status: \(status), error: \(error?.localizedDescription ?? "Unknown")")
-                }
-            }
-            
-            audioEngine.prepare()
-            try audioEngine.start()
-            
-            await MainActor.run {
-                self.isListening = true
-                self.errorMessage = nil
-                print("✅ Speech analyzer started with optimized settings")
-            }
-            
-            // 6. Start Analysis & Handle Results with better filtering
-            async let analysisTask: Void = analyzer.start(inputSequence: stream)
-            
-            for try await result in transcriber.results {
-                guard !Task.isCancelled else { 
-                    print("🎤 Recognition task cancelled, breaking result loop")
-                    break 
-                }
-                
-                let text = String(describing: result.text).trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                // Better filtering of results
-                let filteredText = filterNoiseFromText(text)
-                
-                // Only process final results that have meaningful content
-                if result.isFinal && !filteredText.isEmpty && filteredText.count > 1 {
-                    print("🎤 Final result (filtered): '\(filteredText)'")
-                    
-                    // Avoid processing duplicate or very similar results
-                    if !isSimilarToLastResult(filteredText) {
-                        self.lastRecognizedText = filteredText
-                        await processCommand(filteredText)
-                    } else {
-                        print("🎤 Skipping similar result: '\(filteredText)'")
-                    }
-                } else if !result.isFinal && !filteredText.isEmpty {
-                    // Show intermediate results for debugging
-                    print("🎤 Intermediate: '\(filteredText)'")
-                }
-            }
-            
-            // Wait for analysis to complete
-            try await analysisTask
             
         } catch {
             if !(error is CancellationError) {
@@ -343,25 +237,194 @@ class SpeechControlManager {
                         self.errorMessage = "Speech Error: \(error.localizedDescription)"
                         print("❌ Speech recognition error: \(error)")
                     }
-                }
-                
-                // On recognizer limit error, force cleanup and disable
-                if let speechError = error as NSError?, speechError.domain == "SFSpeechErrorDomain", speechError.code == 16 {
-                    await forceCleanup()
-                    await MainActor.run {
-                        self.isEnabled = false
-                    }
-                } else {
-                    // Don't restart automatically on other errors
-                    await MainActor.run {
-                        self.isEnabled = false
-                    }
+                    self.isEnabled = false
                 }
             }
         }
         
-        // 7. Final cleanup
         await forceCleanup()
+    }
+
+    @available(visionOS 26.0, iOS 26.0, *)
+    private func runModernAnalyzer() async throws {
+        // 1. Configure Audio Session preferences (category/active handled by AudioManager)
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setPreferredSampleRate(16000.0)
+            try audioSession.setPreferredIOBufferDuration(0.2)
+        } catch {
+            print("⚠️ Failed to set preferred audio session parameters: \(error)")
+        }
+        print("🎤 Audio session configured - Sample rate: \(audioSession.sampleRate), Buffer duration: \(audioSession.ioBufferDuration)")
+        
+        // 2. Setup Transcriber with optimized settings for command recognition
+        let transcriber = SpeechTranscriber(
+            locale: Locale(identifier: "en-US"),
+            transcriptionOptions: [],
+            reportingOptions: [.volatileResults, .fastResults],
+            attributeOptions: []
+        )
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        
+        currentTranscriber = transcriber
+        currentAnalyzer = analyzer
+        
+        print("🎤 Created new analyzer and transcriber with on-device processing")
+        
+        // 3. Get optimal audio format
+        guard let requiredFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+            throw NSError(domain: "SpeechError", code: 2, userInfo: [NSLocalizedDescriptionKey: "No compatible audio format found for the speech analyzer."])
+        }
+        print("🎤 System optimal format: \(requiredFormat)")
+        
+        // 4. Prepare Audio Pipeline
+        let (stream, continuation) = AsyncStream.makeStream(of: AnalyzerInput.self)
+        streamContinuation = continuation
+        
+        let inputNode = audioEngine.inputNode
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        print("🎤 Audio engine input format: \(inputFormat)")
+        
+        let bufferSize = AVAudioFrameCount(requiredFormat.sampleRate * 0.2)
+        guard let converter = AVAudioConverter(from: inputFormat, to: requiredFormat) else {
+            throw NSError(domain: "SpeechError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not create audio converter"])
+        }
+        converter.sampleRateConverterQuality = 2
+
+        if isTapInstalled {
+            inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+        inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputFormat) { [weak self] buffer, _ in
+            guard let self = self, let continuation = self.streamContinuation else { return }
+            
+            let outputCapacity = AVAudioFrameCount(Double(buffer.frameLength) * requiredFormat.sampleRate / inputFormat.sampleRate) + 1
+            guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: requiredFormat, frameCapacity: outputCapacity) else {
+                print("❌ Could not create output buffer")
+                return
+            }
+            
+            var error: NSError?
+            let status = converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+                outStatus.pointee = .haveData
+                return buffer
+            }
+            
+            if (status == .haveData || status == .endOfStream), outputBuffer.frameLength > 0 {
+                continuation.yield(AnalyzerInput(buffer: outputBuffer))
+            } else if let error {
+                print("❌ Buffer conversion failed: \(error.localizedDescription)")
+            }
+        }
+        isTapInstalled = true
+        
+        audioEngine.prepare()
+        try audioEngine.start()
+        
+        await MainActor.run {
+            self.isListening = true
+            self.errorMessage = nil
+            print("✅ Speech analyzer started with optimized settings")
+        }
+        
+        // 5. Start Analysis & Handle Results
+        async let analysisTask: Void = analyzer.start(inputSequence: stream)
+        
+        for try await result in transcriber.results {
+            guard !Task.isCancelled else { break }
+            let text = String(describing: result.text).trimmingCharacters(in: .whitespacesAndNewlines)
+            let filteredText = filterNoiseFromText(text)
+            
+            if result.isFinal && !filteredText.isEmpty && filteredText.count > 1 {
+                if !isSimilarToLastResult(filteredText) {
+                    self.lastRecognizedText = filteredText
+                    await processCommand(filteredText)
+                }
+            }
+        }
+        
+        try await analysisTask
+    }
+    
+    private func runLegacyRecognizer() async {
+        print("🎤 Running legacy SFSpeechRecognizer fallback")
+        
+        await MainActor.run {
+            self.errorMessage = nil
+        }
+        
+        legacyRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        guard let recognizer = legacyRecognizer, recognizer.isAvailable else {
+            await MainActor.run {
+                self.errorMessage = "Speech recognizer not available"
+                self.isEnabled = false
+            }
+            return
+        }
+        
+        legacyRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let request = legacyRequest else {
+            await MainActor.run {
+                self.errorMessage = "Failed to create recognition request"
+                self.isEnabled = false
+            }
+            return
+        }
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = false
+        
+        let inputNode = audioEngine.inputNode
+        if isTapInstalled {
+            inputNode.removeTap(onBus: 0)
+            isTapInstalled = false
+        }
+        
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
+            guard let self = self else { return }
+            if buffer.frameLength > 0 {
+                request.append(buffer)
+            }
+        }
+        isTapInstalled = true
+        
+        do {
+            audioEngine.prepare()
+            try audioEngine.start()
+        } catch {
+            await MainActor.run {
+                self.errorMessage = "Audio engine start failed: \(error.localizedDescription)"
+                self.isEnabled = false
+            }
+            return
+        }
+        
+        await MainActor.run {
+            self.isListening = true
+        }
+        
+        legacyTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let self = self else { return }
+            if let result {
+                let text = result.bestTranscription.formattedString
+                let filteredText = self.filterNoiseFromText(text)
+                if result.isFinal && !filteredText.isEmpty && !self.isSimilarToLastResult(filteredText) {
+                    self.lastRecognizedText = filteredText
+                    Task { await self.processCommand(filteredText) }
+                }
+            }
+            if let error {
+                print("❌ Legacy recognition error: \(error)")
+                Task { @MainActor in
+                    self.errorMessage = "Recognition error occurred"
+                    self.isEnabled = false
+                }
+            }
+        }
+        
+        // Keep this task alive until cancelled
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
     }
     
     @MainActor

@@ -197,10 +197,10 @@ struct AISymptomAnalyzerView: View {
                 content.add(anchor)
             }
             
-            // Add exit button - always visible
+            // Add exit button - repositioned closer to center
             if let exitButton = attachments.entity(for: "exitButton") {
                 let anchor = AnchorEntity(.head)
-                exitButton.position = [0.8, 0.4, -1.2]
+                exitButton.position = [0.4, 0.4, -1.2]  // Moved closer from 0.8 to 0.4
                 exitButton.components.set(BillboardComponent())
                 anchor.addChild(exitButton)
                 content.add(anchor)
@@ -234,26 +234,61 @@ struct AISymptomAnalyzerView: View {
                             Text("Difficulty")
                                 .font(.headline)
                             
-                            VStack(spacing: 8) {
-                                Picker("", selection: $difficulty) {
+                            // Replace finicky segmented picker with individual buttons
+                            VStack(spacing: 12) {
+                                HStack(spacing: 16) {
                                     ForEach(Difficulty.allCases, id: \.self) { level in
-                                        Text(level.rawValue).tag(level)
+                                        Button {
+                                            difficulty = level
+                                        } label: {
+                                            Text(level.rawValue)
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(difficulty == level ? .white : .primary)
+                                                .frame(width: 65, height: 40)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(difficulty == level ? Color.blue : Color.gray.opacity(0.2))
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
-                                .pickerStyle(SegmentedPickerStyle())
-                                .frame(width: 300)
                                 
                                 // Show difficulty description
                                 Text(difficulty.description)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .multilineTextAlignment(.center)
+                                    .padding(.horizontal)
                             }
                             
-                            VStack {
+                            VStack(spacing: 8) {
                                 Text("Duration: \(Int(gameDuration)) seconds")
-                                Slider(value: $gameDuration, in: 30...120, step: 10)
-                                    .frame(width: 250)
+                                    .font(.system(size: 16, weight: .medium))
+                                
+                                HStack(spacing: 12) {
+                                    Button("-10s") {
+                                        gameDuration = max(30, gameDuration - 10)
+                                    }
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 36)
+                                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                                    .buttonStyle(.plain)
+                                    
+                                    Text("\(Int(gameDuration))s")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .frame(width: 60)
+                                    
+                                    Button("+10s") {
+                                        gameDuration = min(120, gameDuration + 10)
+                                    }
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 36)
+                                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                                    .buttonStyle(.plain)
+                                }
                             }
                             
                             Text("Instructions:")
@@ -275,13 +310,12 @@ struct AISymptomAnalyzerView: View {
                         
                         Button(action: startGame) {
                             Label("Start Game", systemImage: "play.fill")
-                                .font(.title3)
-                                .frame(width: 200)
-                                .padding()
-                                .background(Color.green)
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 200, height: 50)
+                                .background(Color.green, in: RoundedRectangle(cornerRadius: 12))
                                 .foregroundColor(.white)
-                                .cornerRadius(10)
                         }
+                        .buttonStyle(.plain)
                         
                     } else {
                         // During game controls
@@ -325,19 +359,21 @@ struct AISymptomAnalyzerView: View {
                             HStack(spacing: 20) {
                                 Button(action: { isPaused.toggle() }) {
                                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                                        .frame(width: 60, height: 40)
-                                        .background(Color.orange)
+                                        .font(.system(size: 18))
+                                        .frame(width: 70, height: 45)
+                                        .background(Color.orange, in: RoundedRectangle(cornerRadius: 10))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                                 
                                 Button(action: stopGame) {
                                     Text("Stop")
-                                        .frame(width: 60, height: 40)
-                                        .background(Color.red)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 70, height: 45)
+                                        .background(Color.red, in: RoundedRectangle(cornerRadius: 10))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -472,18 +508,20 @@ struct AISymptomAnalyzerView: View {
                                 resetGame()
                                 showResults = false
                             }
-                            .padding()
-                            .background(Color.green)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 120, height: 45)
+                            .background(Color.green, in: RoundedRectangle(cornerRadius: 10))
                             .foregroundColor(.white)
-                            .cornerRadius(10)
+                            .buttonStyle(.plain)
                             
                             Button("Close") {
                                 showResults = false
                             }
-                            .padding()
-                            .background(Color.gray)
+                            .font(.system(size: 16, weight: .medium))
+                            .frame(width: 120, height: 45)
+                            .background(Color.gray, in: RoundedRectangle(cornerRadius: 10))
                             .foregroundColor(.white)
-                            .cornerRadius(10)
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding()
@@ -916,7 +954,7 @@ struct AISymptomAnalyzerView: View {
         handTrackingTask = Task {
             do {
                 // Request hand tracking authorization
-                let authorizationResult = await arkitSession.requestAuthorization(for: [.handTracking])
+                let authorizationResult = try await arkitSession.requestAuthorization(for: [.handTracking])
                 
                 guard authorizationResult[.handTracking] == .allowed else {
                     print("❌ Hand tracking not authorized")

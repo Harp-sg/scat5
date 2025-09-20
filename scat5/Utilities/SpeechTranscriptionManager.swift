@@ -22,6 +22,7 @@ class SpeechTranscriptionManager {
     private var legacyRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var legacyRecognitionTask: SFSpeechRecognitionTask?
     private var legacyAudioEngine = AVAudioEngine()
+    private var isLegacyTapInstalled = false
     
     // Modern API properties
     private var inputBuilder: AsyncStream<AnalyzerInput>.Continuation?
@@ -178,6 +179,14 @@ class SpeechTranscriptionManager {
         }
         
         do {
+            let ok = await AudioManager.shared.requestAudioSession(for: .recording)
+            guard ok else {
+                await MainActor.run {
+                    self.errorMessage = "Unable to activate audio session"
+                }
+                return
+            }
+
             // Get audio format
             let audioFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber])
             guard let format = audioFormat else {
@@ -237,6 +246,8 @@ class SpeechTranscriptionManager {
         if let analyzer = speechAnalyzer {
             await analyzer.cancelAndFinishNow()
         }
+        
+        await AudioManager.shared.deactivateAudioSession()
         
         await MainActor.run {
             self.isTranscribing = false
@@ -356,20 +367,17 @@ class SpeechTranscriptionManager {
     
     private func stopLegacyTranscription() async {
         legacyAudioEngine.stop()
-        legacyAudioEngine.inputNode.removeTap(onBus: 0)
+        if isLegacyTapInstalled {
+            legacyAudioEngine.inputNode.removeTap(onBus: 0)
+            isLegacyTapInstalled = false
+        }
         legacyRecognitionRequest?.endAudio()
         legacyRecognitionTask?.cancel()
         
         legacyRecognitionRequest = nil
         legacyRecognitionTask = nil
         
-        // Properly clean up audio session
-        do {
-            let audioSession = AVAudioSession.sharedInstance()
-            try audioSession.setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            print("⚠️ Failed to deactivate audio session: \(error)")
-        }
+        await AudioManager.shared.deactivateAudioSession()
         
         await MainActor.run {
             self.isTranscribing = false
@@ -380,14 +388,9 @@ class SpeechTranscriptionManager {
         legacyRecognitionTask?.cancel()
         legacyRecognitionTask = nil
 
-        let audioSession = AVAudioSession.sharedInstance()
-
-        do {
-            try audioSession.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            try audioSession.setCategory(.record, mode: .default, options: [])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        let ok = await AudioManager.shared.requestAudioSession(for: .recording)
+        guard ok else {
+            throw TranscriptionError.analyzerNotReady
         }
 
         legacyRecognitionRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -399,7 +402,10 @@ class SpeechTranscriptionManager {
         recognitionRequest.requiresOnDeviceRecognition = false
 
         let inputNode = legacyAudioEngine.inputNode
-        inputNode.removeTap(onBus: 0)
+        if isLegacyTapInstalled {
+            inputNode.removeTap(onBus: 0)
+            isLegacyTapInstalled = false
+        }
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: nil) { [weak self] buffer, _ in
             guard buffer.frameLength > 0 else { return }
@@ -408,6 +414,7 @@ class SpeechTranscriptionManager {
                 // no-op, just ensures manager stays alive
             }
         }
+        isLegacyTapInstalled = true
 
         legacyAudioEngine.prepare()
         try legacyAudioEngine.start()

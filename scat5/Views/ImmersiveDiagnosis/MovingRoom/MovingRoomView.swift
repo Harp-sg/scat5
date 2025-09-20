@@ -96,42 +96,132 @@ struct MovingRoomView: View {
                             .font(.headline)
                     }
                     
-                    // Movement axis selector
-                    Picker("Movement Axis", selection: $movementAxis) {
-                        Text("Forward/Back").tag(MovementAxis.forwardBack)
-                        Text("Left/Right").tag(MovementAxis.leftRight)
-                        Text("Circular").tag(MovementAxis.both)
+                    // Movement axis selector - replace finicky picker with buttons
+                    VStack(spacing: 12) {
+                        Text("Movement Direction")
+                            .font(.headline)
+                        
+                        HStack(spacing: 16) {
+                            Button {
+                                movementAxis = .forwardBack
+                            } label: {
+                                Text("Forward/Back")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(movementAxis == .forwardBack ? .white : .primary)
+                                    .frame(width: 120, height: 40)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(movementAxis == .forwardBack ? Color.blue : Color.gray.opacity(0.2))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isMoving)
+                            
+                            Button {
+                                movementAxis = .leftRight
+                            } label: {
+                                Text("Left/Right")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(movementAxis == .leftRight ? .white : .primary)
+                                    .frame(width: 120, height: 40)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(movementAxis == .leftRight ? Color.blue : Color.gray.opacity(0.2))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isMoving)
+                            
+                            Button {
+                                movementAxis = .both
+                            } label: {
+                                Text("Circular")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(movementAxis == .both ? .white : .primary)
+                                    .frame(width: 120, height: 40)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8)
+                                            .fill(movementAxis == .both ? Color.blue : Color.gray.opacity(0.2))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(isMoving)
+                        }
                     }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .frame(width: 400)
-                    .disabled(isMoving)
                     
-                    // Amplitude control
-                    VStack {
+                    // Amplitude control - replace slider with buttons for better interaction
+                    VStack(spacing: 8) {
                         Text("Amplitude: \(String(format: "%.1f cm", amplitude * 100))")
-                        Slider(value: $amplitude, in: 0.05...0.3)
-                            .frame(width: 300)
+                            .font(.system(size: 16, weight: .medium))
+                        
+                        HStack(spacing: 12) {
+                            Button("-2cm") {
+                                amplitude = max(0.05, amplitude - 0.02)
+                            }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 36)
+                            .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
                             .disabled(isMoving)
+                            
+                            Text("\(String(format: "%.1f", amplitude * 100))cm")
+                                .font(.system(size: 18, weight: .bold))
+                                .frame(width: 80)
+                            
+                            Button("+2cm") {
+                                amplitude = min(0.3, amplitude + 0.02)
+                            }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 60, height: 36)
+                            .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
+                            .disabled(isMoving)
+                        }
                     }
                     
-                    // Frequency control
-                    VStack {
+                    // Frequency control - replace slider with buttons for better interaction  
+                    VStack(spacing: 8) {
                         Text("Frequency: \(String(format: "%.2f Hz", frequency))")
-                        Slider(value: $frequency, in: 0.1...1.0)
-                            .frame(width: 300)
+                            .font(.system(size: 16, weight: .medium))
+                        
+                        HStack(spacing: 12) {
+                            Button("-0.1Hz") {
+                                frequency = max(0.1, frequency - 0.1)
+                            }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 70, height: 36)
+                            .background(Color.purple, in: RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
                             .disabled(isMoving)
+                            
+                            Text("\(String(format: "%.2f", frequency))Hz")
+                                .font(.system(size: 18, weight: .bold))
+                                .frame(width: 80)
+                            
+                            Button("+0.1Hz") {
+                                frequency = min(1.0, frequency + 0.1)
+                            }
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.white)
+                            .frame(width: 70, height: 36)
+                            .background(Color.purple, in: RoundedRectangle(cornerRadius: 6))
+                            .buttonStyle(.plain)
+                            .disabled(isMoving)
+                        }
                     }
                     
                     // Start/Stop button
                     Button(action: toggleMovement) {
                         Text(isMoving ? "Stop Movement" : "Start Movement")
-                            .font(.title2)
-                            .padding()
-                            .frame(width: 250)
-                            .background(isMoving ? Color.red : Color.green)
+                            .font(.system(size: 18, weight: .semibold))
+                            .frame(width: 250, height: 50)
+                            .background(isMoving ? Color.red : Color.green, in: RoundedRectangle(cornerRadius: 12))
                             .foregroundColor(.white)
-                            .cornerRadius(10)
                     }
+                    .buttonStyle(.plain)
                     
                     // Balance/Sway Monitoring Section
                     Divider()
@@ -222,12 +312,11 @@ struct MovingRoomView: View {
                             Image(systemName: "arrow.left.circle")
                             Text("Exit Moving Room Test")
                         }
-                        .font(.title3)
-                        .padding()
-                        .frame(width: 300)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(10)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 300, height: 45)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(30)
                 .background(.regularMaterial)

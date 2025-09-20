@@ -59,26 +59,22 @@ struct SaccadesTestView: View {
                 }
             }
             
-            // Exit button
+            // Exit button - make it always visible, not conditional
             Attachment(id: "exit") {
-                if !controller.isRunning {
-                    Button {
-                        Task {
-                            await viewRouter.closeImmersiveSpace(
-                                dismissImmersiveSpace: { await dismissImmersiveSpace() },
-                                openMainWindow: { openWindow(id: "MainWindow") }
-                            )
-                        }
-                    } label: {
-                        Label("Exit", systemImage: "xmark.circle.fill")
-                            .font(.title3)
-                            .padding(12)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                Button {
+                    Task {
+                        await viewRouter.closeImmersiveSpace(
+                            dismissImmersiveSpace: { await dismissImmersiveSpace() },
+                            openMainWindow: { openWindow(id: "MainWindow") }
+                        )
                     }
-                    .buttonStyle(.plain)
-                } else {
-                    Color.clear.frame(width: 1, height: 1)
+                } label: {
+                    Label("Exit", systemImage: "xmark.circle.fill")
+                        .font(.title2)
+                        .padding(12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(.plain)
             }
         }
         .gesture(
@@ -93,8 +89,12 @@ struct SaccadesTestView: View {
             controller.onTestComplete = { results in
                 testResults = results
                 saveResults(results)
+                controller.stop()
                 showResults = true
             }
+        }
+        .onDisappear {
+            controller.stop()
         }
     }
     
@@ -118,7 +118,7 @@ struct SaccadesTestView: View {
         }
         
         if let hud = attachments.entity(for: "hud") {
-            hud.position = SIMD3<Float>(-0.8, 0.4, depth + 0.3)
+            hud.position = SIMD3<Float>(-0.4, 0.2, depth + 0.2)  // Moved closer from -0.8 to -0.4
             hud.components.set(BillboardComponent())
             headAnchor.addChild(hud)
         }
@@ -130,7 +130,7 @@ struct SaccadesTestView: View {
         }
         
         if let exit = attachments.entity(for: "exit") {
-            exit.position = SIMD3<Float>(0.8, 0.4, depth + 0.3)
+            exit.position = SIMD3<Float>(0.4, 0.3, depth + 0.2)  // Moved closer and lower
             exit.components.set(BillboardComponent())
             headAnchor.addChild(exit)
         }
@@ -174,6 +174,13 @@ final class SaccadesController {
     var headMotionExceeded = false
     var isHeadTrackingActive = false
     
+    // Add motion sensor data
+    var motionPitch: Double = 0
+    var motionRoll: Double = 0
+    var motionYaw: Double = 0
+    private var motionManager = MotionManager()
+    private var motionUpdateTimer: Timer?
+    
     // Gaze feedback - much more prominent
     var lastGazedTarget: SaccadeDirection?
     var gazeConfidence: Double = 0.0
@@ -202,10 +209,13 @@ final class SaccadesController {
     private var session: ARKitSession?
     private var worldTracking: WorldTrackingProvider?
     private var headTrackingTask: Task<Void, Never>?
-    
+
     // Callback
     var onTestComplete: ((SaccadesTestResults) -> Void)?
-    
+
+    // Track the active trial index
+    private var activeTrialIndex: Int?
+
     enum TestPhase {
         case waitingToStart
         case horizontalPhase
@@ -222,6 +232,28 @@ final class SaccadesController {
         
         // Start head tracking immediately
         startHeadTracking()
+        
+        // Start motion sensor updates
+        startMotionUpdates()
+    }
+    
+    private func startMotionUpdates() {
+        motionManager.startUpdates()
+        
+        // Update motion data every 100ms
+        motionUpdateTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            Task { @MainActor in
+                self.motionPitch = self.motionManager.pitch
+                self.motionRoll = self.motionManager.roll
+                self.motionYaw = self.motionManager.yaw
+            }
+        }
+    }
+    
+    private func stopMotionUpdates() {
+        motionManager.stopUpdates()
+        motionUpdateTimer?.invalidate()
+        motionUpdateTimer = nil
     }
     
     private func create3DTargetEntities() {
@@ -257,33 +289,28 @@ final class SaccadesController {
     }
     
     private func create3DTargetEntity(for direction: SaccadeDirection, at position: SIMD3<Float>) -> (ModelEntity, ModelEntity) {
-        // Main 3D target sphere - much smaller and more precise
-        let targetRadius: Float = 0.025 // 5cm diameter (was 10cm)
+        let targetRadius: Float = 0.025
         let targetEntity = ModelEntity(
             mesh: .generateSphere(radius: targetRadius),
             materials: [create3DMaterial(for: direction, isActive: false)]
         )
-        
+
         targetEntity.name = "\(direction.rawValue)Target"
         targetEntity.position = position
-        
-        // Essential for interaction - enable gaze and spatial tap
+
         targetEntity.components.set(InputTargetComponent(allowedInputTypes: .indirect))
         targetEntity.generateCollisionShapes(recursive: false)
-        
-        // Add 3D glow sphere that surrounds the target - also smaller
-        let glowRadius: Float = 0.035 // Smaller glow sphere (was 0.08)
+
+        let glowRadius: Float = 0.035
         let glowEntity = ModelEntity(
             mesh: .generateSphere(radius: glowRadius),
             materials: [createGlowMaterial(for: direction)]
         )
-        
+
         glowEntity.name = "\(direction.rawValue)Glow"
         glowEntity.position = position
-        glowEntity.isEnabled = false // Initially hidden
-        
-        print("📍 Created small 3D target entity for \(direction.displayName) at position \(position)")
-        
+        glowEntity.isEnabled = false
+
         return (targetEntity, glowEntity)
     }
     
@@ -317,24 +344,21 @@ final class SaccadesController {
     private func create3DMaterial(for direction: SaccadeDirection, isActive: Bool) -> SimpleMaterial {
         let baseColor = getTargetColor(direction)
         let opacity: CGFloat = isActive ? 0.9 : 0.4
-        
-        let material = SimpleMaterial(color: baseColor.withAlphaComponent(opacity), roughness: 0.2, isMetallic: false)
-        
-        return material
+        let uiColor = baseColor.withAlphaComponent(opacity)
+        return SimpleMaterial(color: uiColor, roughness: 0.2, isMetallic: false)
     }
-    
+
     private func createGlowMaterial(for direction: SaccadeDirection) -> SimpleMaterial {
-        let glowColor = getTargetColor(direction)
-        let material = SimpleMaterial(color: glowColor.withAlphaComponent(0.2), roughness: 0.0, isMetallic: false)
-        return material
+        let glowColor = getTargetColor(direction).withAlphaComponent(0.2)
+        return SimpleMaterial(color: glowColor, roughness: 0.0, isMetallic: false)
     }
-    
-    private func getTargetColor(_ direction: SaccadeDirection) -> UIColor {
+
+    private func getTargetColor(_ direction: SaccadeDirection) -> SimpleMaterial.Color {
         switch direction {
-        case .left: return .systemGreen
-        case .right: return .systemBlue
-        case .up: return .systemOrange
-        case .down: return .systemPurple
+        case .left: return .green
+        case .right: return .blue
+        case .up: return .orange
+        case .down: return .purple
         }
     }
     
@@ -394,6 +418,7 @@ final class SaccadesController {
             // Present cue
             showFixation = false
             currentCue = direction
+            activeTrialIndex = currentTrialIndex + index
             cueStartTime = ProcessInfo.processInfo.systemUptime
             gazeIndicatorText = "Look at the \(direction.displayName.lowercased()) 3D target NOW! (Gaze + light tap)"
             
@@ -414,9 +439,8 @@ final class SaccadesController {
                     headMotionExceeded = true
                     headMotionWarning = "HEAD MOVEMENT DETECTED!"
                     
-                    // Invalidate trial
                     let trial = SaccadeTrial(
-                        index: currentTrialIndex + index,
+                        index: activeTrialIndex ?? (currentTrialIndex + index),
                         direction: direction,
                         testDirection: currentPhase == .horizontalPhase ? .horizontal : .vertical,
                         cueTime: cueStartTime,
@@ -429,10 +453,9 @@ final class SaccadesController {
                     trials.append(trial)
                     trialCompleted = true
                     gazeIndicatorText = "Trial invalidated - keep head still!"
-                    
-                    print("❌ Trial invalidated due to head motion: yaw=\(currentHeadYaw)°, pitch=\(currentHeadPitch)°")
-                    
-                    // Give user time to read message
+                    self.currentCue = nil
+                    activeTrialIndex = nil
+
                     try? await Task.sleep(nanoseconds: 1_000_000_000)
                 }
                 
@@ -445,7 +468,7 @@ final class SaccadesController {
             // Handle timeout
             if !trialCompleted && currentCue != nil {
                 let trial = SaccadeTrial(
-                    index: currentTrialIndex + index,
+                    index: activeTrialIndex ?? (currentTrialIndex + index),
                     direction: direction,
                     testDirection: currentPhase == .horizontalPhase ? .horizontal : .vertical,
                     cueTime: cueStartTime,
@@ -457,11 +480,9 @@ final class SaccadesController {
                 )
                 trials.append(trial)
                 currentCue = nil
+                activeTrialIndex = nil
                 gazeIndicatorText = "Timeout - try to look at 3D targets faster"
-                
-                print("⏱️ Trial timed out")
-                
-                // Give user time to read message
+
                 try? await Task.sleep(nanoseconds: 1_000_000_000)
             }
             
@@ -522,7 +543,6 @@ final class SaccadesController {
         }
         
         guard let currentCue = currentCue else {
-            print("⚠️ 3D Target interaction detected but no active cue")
             return
         }
         
@@ -533,7 +553,7 @@ final class SaccadesController {
         // Check for anticipation (too fast)
         if responseTime < 0.120 {
             let trial = SaccadeTrial(
-                index: currentTrialIndex + (pendingTrials.count - pendingTrials.count),
+                index: activeTrialIndex ?? trials.count,
                 direction: currentCue,
                 testDirection: currentPhase == .horizontalPhase ? .horizontal : .vertical,
                 cueTime: cueStartTime,
@@ -545,9 +565,9 @@ final class SaccadesController {
             )
             trials.append(trial)
             self.currentCue = nil
+            activeTrialIndex = nil
             gazeIndicatorText = "Too fast! Wait for the 3D cue"
-            
-            print("⚡ Anticipation detected: \(Int(latencyMs))ms")
+
             return
         }
         
@@ -556,7 +576,7 @@ final class SaccadesController {
         let outcome: TrialOutcome = isCorrect ? .correct : .wrongTarget
         
         let trial = SaccadeTrial(
-            index: currentTrialIndex + (pendingTrials.count - pendingTrials.count),
+            index: activeTrialIndex ?? trials.count,
             direction: currentCue,
             testDirection: currentPhase == .horizontalPhase ? .horizontal : .vertical,
             cueTime: cueStartTime,
@@ -566,10 +586,11 @@ final class SaccadesController {
             headYawDeg: abs(currentHeadYaw),
             headPitchDeg: abs(currentHeadPitch)
         )
-        
+
         trials.append(trial)
         self.currentCue = nil
-        
+        activeTrialIndex = nil
+
         if isCorrect {
             gazeIndicatorText = "✅ Correct 3D target! \(Int(latencyMs))ms reaction time"
         } else {
@@ -672,22 +693,22 @@ final class SaccadesController {
     private func startHeadTracking() {
         let session = ARKitSession()
         let worldTracking = WorldTrackingProvider()
-        
+
         self.session = session
         self.worldTracking = worldTracking
-        
+
         headTrackingTask = Task {
             do {
                 try await session.run([worldTracking])
                 isHeadTrackingActive = true
-                
-                // Capture baseline after a short delay
+
                 try? await Task.sleep(nanoseconds: 500_000_000)
-                
+
                 for await update in worldTracking.anchorUpdates {
+                    if Task.isCancelled { break }
                     guard let device = update.anchor as? DeviceAnchor else { continue }
                     let currentTransform = device.originFromAnchorTransform
-                    
+
                     // Set baseline on first reading
                     if baselineHeadTransform == nil {
                         baselineHeadTransform = currentTransform
@@ -696,17 +717,17 @@ final class SaccadesController {
                         }
                         continue
                     }
-                    
+
                     guard let baseline = baselineHeadTransform else { continue }
-                    
+
                     // Calculate head motion relative to baseline
                     let deltaTransform = currentTransform * baseline.inverse
                     let (yaw, pitch, _) = extractEulerAngles(from: deltaTransform)
-                    
+
                     await MainActor.run {
                         currentHeadYaw = yaw * 180 / .pi
                         currentHeadPitch = pitch * 180 / .pi
-                        
+
                         // Update warning based on motion
                         if abs(currentHeadYaw) > 4.0 || abs(currentHeadPitch) > 4.0 {
                             headMotionWarning = "Keep head still!"
@@ -717,13 +738,22 @@ final class SaccadesController {
                 }
             } catch {
                 await MainActor.run {
-                    print("❌ Head tracking failed: \(error)")
                     isHeadTrackingActive = false
                 }
             }
         }
     }
-    
+
+    func stop() {
+        headTrackingTask?.cancel()
+        headTrackingTask = nil
+        session?.stop()
+        session = nil
+        worldTracking = nil
+        isHeadTrackingActive = false
+        stopMotionUpdates()  // Add motion cleanup
+    }
+
     private func extractEulerAngles(from transform: simd_float4x4) -> (yaw: Double, pitch: Double, roll: Double) {
         let m = transform
         let yaw = atan2(Double(m[0][2]), Double(m[0][0]))
@@ -908,11 +938,82 @@ struct TestHUDView: View {
             // Progress
             ProgressView(value: controller.progress)
                 .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                .frame(width: 220)
+                .frame(width: 200)
             
             Text("\(Int(controller.progress * 100))% Complete")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            
+            Divider()
+            
+            // Head motion tracking data
+            VStack(alignment: .leading, spacing: 8) {
+                Text("HEAD MOTION TRACKING:")
+                    .font(.caption.bold())
+                    .foregroundStyle(.orange)
+                
+                HStack(spacing: 12) {
+                    VStack {
+                        Text("Yaw")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f°", abs(controller.currentHeadYaw)))
+                            .font(.caption.bold())
+                            .foregroundStyle(abs(controller.currentHeadYaw) > 4.0 ? .red : .green)
+                    }
+                    
+                    VStack {
+                        Text("Pitch")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.1f°", abs(controller.currentHeadPitch)))
+                            .font(.caption.bold())
+                            .foregroundStyle(abs(controller.currentHeadPitch) > 4.0 ? .red : .green)
+                    }
+                }
+                
+                Text(controller.isHeadTrackingActive ? "✅ ARKit Active" : "❌ ARKit Inactive")
+                    .font(.caption2)
+                    .foregroundStyle(controller.isHeadTrackingActive ? .green : .red)
+            }
+            
+            Divider()
+            
+            // Motion sensor data
+            VStack(alignment: .leading, spacing: 8) {
+                Text("MOTION SENSORS:")
+                    .font(.caption.bold())
+                    .foregroundStyle(.blue)
+                
+                HStack(spacing: 12) {
+                    VStack {
+                        Text("Pitch")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.2f", controller.motionPitch))
+                            .font(.caption.bold())
+                            .foregroundStyle(.primary)
+                    }
+                    
+                    VStack {
+                        Text("Roll")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.2f", controller.motionRoll))
+                            .font(.caption.bold())
+                            .foregroundStyle(.primary)
+                    }
+                    
+                    VStack {
+                        Text("Yaw")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "%.2f", controller.motionYaw))
+                            .font(.caption.bold())
+                            .foregroundStyle(.primary)
+                    }
+                }
+            }
             
             Divider()
             
@@ -935,31 +1036,6 @@ struct TestHUDView: View {
                 }
             }
             
-            Divider()
-            
-            // Head motion indicator
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "gyroscope")
-                        .foregroundStyle(controller.isHeadTrackingActive ? 
-                                       (controller.headMotionExceeded ? .red : .green) : .gray)
-                    
-                    Text("HEAD TRACKING")
-                        .font(.caption.bold())
-                        .foregroundStyle(controller.isHeadTrackingActive ? .white : .gray)
-                }
-                
-                if controller.isHeadTrackingActive {
-                    Text("Yaw: \(abs(controller.currentHeadYaw), specifier: "%.1f")° | Pitch: \(abs(controller.currentHeadPitch), specifier: "%.1f")°")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Initializing...")
-                        .font(.caption2)
-                        .foregroundStyle(.gray)
-                }
-            }
-            
             if !controller.headMotionWarning.isEmpty {
                 Text(controller.headMotionWarning)
                     .font(.caption.bold())
@@ -970,7 +1046,7 @@ struct TestHUDView: View {
         }
         .padding(20)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .frame(minWidth: 280)
+        .frame(minWidth: 260)
     }
     
     private var phaseTitle: String {

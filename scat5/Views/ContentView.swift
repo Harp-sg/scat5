@@ -26,18 +26,46 @@ struct ContentView: View {
             } else {
                 switch viewRouter.currentView {
                 case .dashboard:
-                    MainDashboardView()
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                    if authService.isEmergencyMode {
+                        EmergencyAssessmentFlowView()
+                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                    } else {
+                        MainDashboardView()
+                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                    }
                 case .testSelection(let sessionType):
-                    TestSelectionView(testType: sessionType)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    if authService.isEmergencyMode {
+                        EmergencyAssessmentFlowView()
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    } else {
+                        TestSelectionView(testType: sessionType)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
                 case .interactiveDiagnosis:
-                    InteractiveDiagnosisView()
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                        
+                    if authService.isEmergencyMode {
+                        EmergencyAssessmentFlowView()
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    } else {
+                        InteractiveDiagnosisView()
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
+                case .fullAssessment(let sessionType):
+                    if authService.isEmergencyMode {
+                        EmergencyAssessmentFlowView()
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    } else {
+                        FullAssessmentFlowView(sessionType: sessionType)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
+
                 default:
-                    MainDashboardView()
-                        .transition(.opacity.combined(with: .move(edge: .leading)))
+                    if authService.isEmergencyMode {
+                        EmergencyAssessmentFlowView()
+                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                    } else {
+                        MainDashboardView()
+                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                    }
                 }
             }
         }
@@ -56,11 +84,7 @@ struct ContentView: View {
             // Set the model context for the auth service when the view appears
             authService.setModelContext(modelContext)
         }
-        .onChange(of: viewRouter.currentView) { oldValue, newValue in
-            // Prevent rapid successive changes that cause performance issues
-            guard oldValue != newValue else { return }
-            
-            // Update speech coordinator context when view changes
+        .onChange(of: viewRouter.currentView) { newValue in
             updateSpeechContext(for: newValue)
         }
         .task {
@@ -126,5 +150,6 @@ extension View {
         .environment(AuthService())
         .environment(AppViewModel())
         .environment(ViewRouter())
-        .modelContainer(for: [User.self, TestSession.self, SymptomResult.self, CognitiveResult.self, OrientationResult.self, ConcentrationResult.self, MemoryTrial.self, NeurologicalResult.self, BalanceResult.self])
+        .environment(SpeechControlCoordinator())
+        .modelContainer(for: [User.self, TestSession.self, SymptomResult.self, CognitiveResult.self, OrientationResult.self, ConcentrationResult.self, MemoryTrial.self, NeurologicalResult.self, BalanceResult.self], inMemory: true)
 }

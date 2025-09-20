@@ -6,7 +6,8 @@ enum AppView: Equatable {
     case dashboard
     case testSelection(SessionType)
     case interactiveDiagnosis
-    
+    case fullAssessment(SessionType)
+
     // Immersive Diagnosis Views
     case aiSymptomAnalyzer
     case fallingBallCatch     // Added new falling ball test

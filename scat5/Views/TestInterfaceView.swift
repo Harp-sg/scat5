@@ -38,6 +38,14 @@ struct TestInterfaceView: View {
                                      await dismissImmersiveSpace()
                                      appViewModel.isImmersiveSpaceShown = false
                                  }
+                             }, onSkip: {
+                                 // Set default values for skipped symptom test
+                                 setDefaultSymptomValues(symptomResult)
+                                 session.markModuleSkipped(module.rawValue)
+                                 Task {
+                                     await dismissImmersiveSpace()
+                                     appViewModel.isImmersiveSpaceShown = false
+                                 }
                              })
                          }
                      }
@@ -64,6 +72,58 @@ struct TestInterfaceView: View {
             Text("No module selected.")
         }
     }
+    
+    // MARK: - Default Value Setters
+    
+    private func setDefaultSymptomValues(_ symptomResult: SymptomResult) {
+        // Set all symptoms to 0 (no symptoms)
+        for symptom in Symptom.allCases {
+            symptomResult.ratings[symptom.rawValue] = 0
+        }
+        symptomResult.worsensWithPhysicalActivity = false
+        symptomResult.worsensWithMentalActivity = false
+        symptomResult.percentOfNormal = 100
+    }
+    
+    private func setDefaultCognitiveValues(_ cognitiveResult: CognitiveResult) {
+        // Set default orientation values (perfect score)
+        if let orientationResult = cognitiveResult.orientationResult {
+            orientationResult.correctCount = 5
+            for question in OrientationQuestion.standardQuestions {
+                orientationResult.answers[question.prompt] = "Skipped"
+            }
+        }
+        
+        // Set default concentration values (perfect score)
+        if let concentrationResult = cognitiveResult.concentrationResult {
+            concentrationResult.digitScore = 4
+            concentrationResult.monthsCorrect = true
+        }
+        
+        // Set default immediate memory values (perfect score)
+        for trial in cognitiveResult.immediateMemoryTrials {
+            trial.recalledWords = trial.words
+        }
+        
+        // Set default delayed recall values (perfect score)
+        cognitiveResult.delayedRecalledWords = cognitiveResult.delayedRecallWordList
+    }
+    
+    private func setDefaultNeurologicalValues(_ neuroResult: NeurologicalResult) {
+        // Set all neurological tests to normal
+        neuroResult.neckPain = false
+        neuroResult.readingNormal = true
+        neuroResult.doubleVision = false
+        neuroResult.fingerNoseNormal = true
+        neuroResult.tandemGaitNormal = true
+        neuroResult.tandemGaitTime = 0.0 // Perfect time
+    }
+    
+    private func setDefaultBalanceValues(_ balanceResult: BalanceResult) {
+        // Set no errors for all stances
+        balanceResult.errorsByStance = [0, 0, 0]
+        balanceResult.swayData = []
+    }
 }
 
 // MARK: - Fallback for Non-Immersive Modules
@@ -76,19 +136,22 @@ struct FallbackTestView: View {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.openImmersiveSpace) private var openImmersiveSpace
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
+    @Environment(AuthService.self) private var authService
+    @Environment(ViewRouter.self) private var viewRouter
     @State private var isShowingQuestions = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Content
             if isShowingQuestions {
-                // This switch statement now correctly routes to the 2D test views
                 switch module {
                 case .cognitive:
-                    // Use the standalone cognitive screening test (not the bundled one)
                     if let cognitiveResult = session.cognitiveResult {
                         StandaloneCognitiveTestView(cognitiveResult: cognitiveResult, onComplete: {
                             session.markModuleComplete(module.rawValue)
+                            closeImmersiveSpace()
+                        }, onSkip: {
+                            setDefaultCognitiveValues(cognitiveResult)
+                            session.markModuleSkipped(module.rawValue)
                             closeImmersiveSpace()
                         })
                     }
@@ -97,12 +160,20 @@ struct FallbackTestView: View {
                         ImmediateMemoryView(cognitiveResult: cognitiveResult, onComplete: {
                             session.markModuleComplete(module.rawValue)
                             closeImmersiveSpace()
+                        }, onSkip: {
+                            setDefaultImmediateMemoryValues(cognitiveResult)
+                            session.markModuleSkipped(module.rawValue)
+                            closeImmersiveSpace()
                         })
                     }
                 case .balance:
                     if let balanceResult = session.balanceResult {
                         BalanceTestView(balanceResult: balanceResult, onComplete: {
                             session.markModuleComplete(module.rawValue)
+                            closeImmersiveSpace()
+                        }, onSkip: {
+                            setDefaultBalanceValues(balanceResult)
+                            session.markModuleSkipped(module.rawValue)
                             closeImmersiveSpace()
                         })
                     }
@@ -111,6 +182,10 @@ struct FallbackTestView: View {
                         CoordinationTestView(neuroResult: neuroResult, onComplete: {
                             session.markModuleComplete(module.rawValue)
                             closeImmersiveSpace()
+                        }, onSkip: {
+                            setDefaultNeurologicalValues(neuroResult)
+                            session.markModuleSkipped(module.rawValue)
+                            closeImmersiveSpace()
                         })
                     }
                 case .delayedRecall:
@@ -118,36 +193,82 @@ struct FallbackTestView: View {
                         DelayedRecallView(cognitiveResult: cognitiveResult, onComplete: {
                             session.markModuleComplete(module.rawValue)
                             closeImmersiveSpace()
+                        }, onSkip: {
+                            setDefaultDelayedRecallValues(cognitiveResult)
+                            session.markModuleSkipped(module.rawValue)
+                            closeImmersiveSpace()
                         })
                     }
-                
                 default:
                     Text("This module is not yet implemented.")
                 }
             } else {
-                ModuleIntroView(module: module) {
+                ModuleIntroView(module: module, onSkip: {
+                    // Handle skip from intro screen
+                    switch module {
+                    case .cognitive:
+                        if let cognitiveResult = session.cognitiveResult {
+                            setDefaultCognitiveValues(cognitiveResult)
+                        }
+                    case .immediateMemory:
+                        if let cognitiveResult = session.cognitiveResult {
+                            setDefaultImmediateMemoryValues(cognitiveResult)
+                        }
+                    case .balance:
+                        if let balanceResult = session.balanceResult {
+                            setDefaultBalanceValues(balanceResult)
+                        }
+                    case .coordination:
+                        if let neuroResult = session.neurologicalResult {
+                            setDefaultNeurologicalValues(neuroResult)
+                        }
+                    case .delayedRecall:
+                        if let cognitiveResult = session.cognitiveResult {
+                            setDefaultDelayedRecallValues(cognitiveResult)
+                        }
+                    default:
+                        break
+                    }
+                    session.markModuleSkipped(module.rawValue)
+                    closeImmersiveSpace()
+                }) {
                     isShowingQuestions = true
                 }
             }
         }
-        .frame(width: 550, height: 600)
+        .frame(width: 700, height: 650)
         .glassBackgroundEffect()
         .cornerRadius(20)
         .overlay(alignment: .topTrailing) {
-            // Floating close button
-            Button(action: { closeImmersiveSpace() }) {
+            Button(action: {
+                if authService.isEmergencyMode {
+                    exitEmergency()
+                } else {
+                    Task {
+                        await dismissImmersiveSpace()
+                        appViewModel.isImmersiveSpaceShown = false
+                    }
+                }
+            }) {
                 Image(systemName: "xmark")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(12)
-                    .background(.white.opacity(0.1))
-                    .clipShape(Circle())
+                    .background(.regularMaterial, in: Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(.primary.opacity(0.2), lineWidth: 1)
+                    )
             }
-            .padding()
+            .padding(16)
+            .buttonStyle(.plain)
         }
         .onAppear {
             speechCoordinator.currentViewContext = .testInterface
+            if authService.isEmergencyMode {
+                isShowingQuestions = true
+            }
         }
     }
     
@@ -155,6 +276,17 @@ struct FallbackTestView: View {
         Task {
             await dismissImmersiveSpace()
             appViewModel.isImmersiveSpaceShown = false
+        }
+    }
+
+    private func exitEmergency() {
+        Task {
+            await dismissImmersiveSpace()
+            await MainActor.run {
+                appViewModel.isImmersiveSpaceShown = false
+                authService.logout()
+                viewRouter.navigate(to: .login)
+            }
         }
     }
     
@@ -187,6 +319,52 @@ struct FallbackTestView: View {
             appViewModel.isImmersiveSpaceShown = false
         }
     }
+    
+    // MARK: - Default Value Setters
+    
+    private func setDefaultCognitiveValues(_ cognitiveResult: CognitiveResult) {
+        // Set default orientation values (perfect score)
+        if let orientationResult = cognitiveResult.orientationResult {
+            orientationResult.correctCount = 5
+            for question in OrientationQuestion.standardQuestions {
+                orientationResult.answers[question.prompt] = "Skipped"
+            }
+        }
+        
+        // Set default concentration values (perfect score)
+        if let concentrationResult = cognitiveResult.concentrationResult {
+            concentrationResult.digitScore = 4
+            concentrationResult.monthsCorrect = true
+        }
+    }
+    
+    private func setDefaultImmediateMemoryValues(_ cognitiveResult: CognitiveResult) {
+        // Set default immediate memory values (perfect score)
+        for trial in cognitiveResult.immediateMemoryTrials {
+            trial.recalledWords = trial.words
+        }
+    }
+    
+    private func setDefaultNeurologicalValues(_ neuroResult: NeurologicalResult) {
+        // Set all neurological tests to normal
+        neuroResult.neckPain = false
+        neuroResult.readingNormal = true
+        neuroResult.doubleVision = false
+        neuroResult.fingerNoseNormal = true
+        neuroResult.tandemGaitNormal = true
+        neuroResult.tandemGaitTime = 0.0 // Perfect time
+    }
+    
+    private func setDefaultBalanceValues(_ balanceResult: BalanceResult) {
+        // Set no errors for all stances
+        balanceResult.errorsByStance = [0, 0, 0]
+        balanceResult.swayData = []
+    }
+    
+    private func setDefaultDelayedRecallValues(_ cognitiveResult: CognitiveResult) {
+        // Set default delayed recall values (perfect score)
+        cognitiveResult.delayedRecalledWords = cognitiveResult.delayedRecallWordList
+    }
 }
 
 // MARK: - Symptom Test View (Clean & Simple)
@@ -194,20 +372,37 @@ struct FallbackTestView: View {
 struct SymptomTestView: View, TestController {
     @Bindable var symptomResult: SymptomResult
     let onComplete: () -> Void
+    let onSkip: () -> Void
     
     @Environment(AppViewModel.self) private var appViewModel
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
+    @Environment(AuthService.self) private var authService
+    @Environment(ViewRouter.self) private var viewRouter
     @State private var currentSymptomIndex = 0
     private let symptoms = Symptom.allCases
     
     var body: some View {
         VStack(spacing: 0) {
-            // Clean header
+            // Clean header with skip button
             VStack(spacing: 12) {
-                Text("Symptom Assessment")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundColor(.primary)
+                HStack {
+                    Text("Symptom Assessment")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                    
+                    Button("Skip Module") {
+                        onSkip()
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    .padding(.trailing, 50) // Add space to avoid overlap with X button
+                }
                 
                 Text("Question \(currentSymptomIndex + 1) of \(symptoms.count)")
                     .font(.system(size: 16, weight: .medium))
@@ -370,25 +565,33 @@ struct SymptomTestView: View, TestController {
                 .transition(.opacity)
             }
         }
-        .frame(width: 550, height: 600)
+        .frame(width: 700, height: 650)
         .glassBackgroundEffect()
         .cornerRadius(20)
         .overlay(alignment: .topTrailing) {
             Button(action: {
-                Task {
-                    await dismissImmersiveSpace()
-                    appViewModel.isImmersiveSpaceShown = false
+                if authService.isEmergencyMode {
+                    exitEmergency()
+                } else {
+                    Task {
+                        await dismissImmersiveSpace()
+                        appViewModel.isImmersiveSpaceShown = false
+                    }
                 }
             }) {
                 Image(systemName: "xmark")
                     .font(.title3)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(12)
-                    .background(.white.opacity(0.1))
-                    .clipShape(Circle())
+                    .background(.regularMaterial, in: Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(.primary.opacity(0.2), lineWidth: 1)
+                    )
             }
-            .padding()
+            .padding(16)
+            .buttonStyle(.plain)
         }
         .onAppear {
             speechCoordinator.testController = self
@@ -477,6 +680,17 @@ struct SymptomTestView: View, TestController {
             break
         }
     }
+    
+    private func exitEmergency() {
+        Task {
+            await dismissImmersiveSpace()
+            await MainActor.run {
+                appViewModel.isImmersiveSpaceShown = false
+                authService.logout()
+                viewRouter.navigate(to: .login)
+            }
+        }
+    }
 }
 
 // MARK: - Button Styles
@@ -550,6 +764,7 @@ struct SimpleToggleStyle: ToggleStyle {
 
 struct ModuleIntroView: View, TestController {
     let module: TestModule
+    let onSkip: () -> Void
     let onStart: () -> Void
     
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
@@ -571,14 +786,25 @@ struct ModuleIntroView: View, TestController {
                 .padding(.horizontal)
             
             Spacer()
-            
-            Button("Begin Test") {
-                onStart()
+            VStack(spacing: 16) {
+                Button("Begin Test") {
+                    onStart()
+                }
+                .font(.headline)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+                .foregroundColor(.white)
+                
+                Button("Skip Module") {
+                    onSkip()
+                }
+                .font(.subheadline)
+                .padding()
+                .frame(maxWidth: .infinity)
+                .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                .foregroundColor(.orange)
             }
-            .font(.headline)
-            .padding()
-            .frame(maxWidth: .infinity)
-
         }
         .padding(30)
         .onAppear {
@@ -606,7 +832,8 @@ struct ModuleIntroView: View, TestController {
     
     return SymptomTestView(
         symptomResult: sampleSymptomResult,
-        onComplete: { print("Symptom test completed") }
+        onComplete: { print("Symptom test completed") },
+        onSkip: { print("Symptom test skipped") }
     )
     .environment(AppViewModel())
     .modelContainer(container)

@@ -53,6 +53,12 @@ struct TestResultsView: View {
     let session: TestSession
     private let riskEngine = RiskAssessmentEngine()
     
+    @State private var multipeerManager = MultipeerManager()
+    @State private var showingDeviceList = false
+    @State private var showingShareSheet = false
+    @State private var shareableContent: ShareableContent?
+    @State private var diagnosisTransfer: SCAT5DiagnosisTransfer?
+    
     var body: some View {
         List {
             Section("Session Details") {
@@ -75,6 +81,42 @@ struct TestResultsView: View {
                     Spacer()
                     Text(session.isComplete ? "Complete" : "In Progress")
                         .foregroundColor(session.isComplete ? .green : .orange)
+                }
+            }
+            
+            // Only show sharing options if session is complete
+            if session.isComplete {
+                Section("Share Results") {
+                    Button {
+                        showingDeviceList = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "iphone")
+                                .foregroundStyle(.blue)
+                            Text("Send to iPhone")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Button {
+                        if let diagnosis = diagnosisTransfer {
+                            shareableContent = multipeerManager.generateShareableContent(from: diagnosis)
+                            showingShareSheet = true
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(.green)
+                            Text("Export Results")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
             
@@ -166,6 +208,17 @@ struct TestResultsView: View {
             }
         }
         .navigationTitle("Test Results")
+        .onAppear {
+            diagnosisTransfer = SCAT5DiagnosisTransfer(from: session)
+        }
+        .sheet(isPresented: $showingDeviceList) {
+            DeviceSelectionView(multipeerManager: multipeerManager, diagnosis: diagnosisTransfer)
+        }
+        .sheet(isPresented: $showingShareSheet) {
+            if let content = shareableContent {
+                ShareSheet(items: content.activityItems)
+            }
+        }
     }
 }
 
@@ -184,6 +237,8 @@ struct RiskAnalysisRow: View {
             return .orange
         case .high:
             return .red
+        case .normal:
+            return .orange
         }
     }
     

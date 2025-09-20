@@ -3,6 +3,7 @@ import SwiftUI
 struct CreateAccountView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AuthService.self) private var authService
+    @Environment(AppViewModel.self) private var appViewModel
     
     @State private var username = ""
     @State private var password = ""
@@ -13,6 +14,11 @@ struct CreateAccountView: View {
     @State private var sport = ""
     @State private var showingError = false
     @State private var errorMessage = ""
+    @FocusState private var focusedField: Field?
+    
+    enum Field: Hashable {
+        case username, password, confirmPassword, firstName, lastName, sport
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -62,27 +68,27 @@ struct CreateAccountView: View {
                                 FormField(title: "Username", text: $username) {
                                     TextField("Choose a username", text: $username)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .autocapitalization(.none)
+                                        .textInputAutocapitalization(.never)
                                         .autocorrectionDisabled()
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .username)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .password }
                                 }
                                 
                                 FormField(title: "Password", text: $password) {
                                     SecureField("Create a password", text: $password)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .password)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .confirmPassword }
                                 }
                                 
                                 FormField(title: "Confirm Password", text: $confirmPassword) {
                                     SecureField("Re-enter password", text: $confirmPassword)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .confirmPassword)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .firstName }
                                 }
                                 
                                 if !password.isEmpty && !confirmPassword.isEmpty && password != confirmPassword {
@@ -108,17 +114,17 @@ struct CreateAccountView: View {
                                 FormField(title: "First Name", text: $firstName) {
                                     TextField("Enter first name", text: $firstName)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .firstName)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .lastName }
                                 }
                                 
                                 FormField(title: "Last Name", text: $lastName) {
                                     TextField("Enter last name", text: $lastName)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .lastName)
+                                        .submitLabel(.next)
+                                        .onSubmit { focusedField = .sport }
                                 }
                                 
                                 VStack(alignment: .leading, spacing: 8) {
@@ -142,9 +148,9 @@ struct CreateAccountView: View {
                                 FormField(title: "Primary Sport", text: $sport) {
                                     TextField("Enter primary sport", text: $sport)
                                         .textFieldStyle(MedicalTextFieldStyle())
-                                        .onTapGesture {
-                                            // Ensure field gets focus in visionOS
-                                        }
+                                        .focused($focusedField, equals: .sport)
+                                        .submitLabel(.done)
+                                        .onSubmit { createAccount() }
                                 }
                             }
                         }
@@ -159,6 +165,16 @@ struct CreateAccountView: View {
             Button("OK") { }
         } message: {
             Text(errorMessage)
+        }
+        .onAppear {
+            focusedField = .username
+            appViewModel.isTextEntryActive = true
+        }
+        .onChange(of: focusedField) { newValue in
+            appViewModel.isTextEntryActive = newValue != nil
+        }
+        .onDisappear {
+            appViewModel.isTextEntryActive = false
         }
     }
     

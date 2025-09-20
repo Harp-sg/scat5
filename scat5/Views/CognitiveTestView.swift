@@ -4,6 +4,7 @@ import SwiftData
 struct CognitiveTestView: View, TestController, QuestionController, FormController {
     @Bindable var cognitiveResult: CognitiveResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
     
     // State to manage which part of the test is active
     @State private var currentStep: CognitiveStep = .orientation
@@ -17,6 +18,28 @@ struct CognitiveTestView: View, TestController, QuestionController, FormControll
     
     var body: some View {
         VStack {
+            // Header with skip button
+            HStack {
+                Text("Cognitive Test")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.primary)
+                
+                Spacer()
+                
+                if let onSkip = onSkip {
+                    Button("Skip Module") {
+                        onSkip()
+                    }
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            
             switch currentStep {
             case .orientation:
                 OrientationQuestionView(
@@ -31,7 +54,8 @@ struct CognitiveTestView: View, TestController, QuestionController, FormControll
                     cognitiveResult: cognitiveResult,
                     onComplete: {
                         currentStep = .concentration
-                    }
+                    },
+                    onSkip: nil
                 )
                 Button("Back to Orientation") {
                     currentStep = .orientation
@@ -94,6 +118,9 @@ struct CognitiveTestView: View, TestController, QuestionController, FormControll
         case .completeTest:
             print("🎤 Completing cognitive test")
             onComplete()
+        case .skipModule:
+            print("🎤 Skipping cognitive test")
+            onSkip?()
         case .resetTest:
             print("🎤 Resetting to orientation")
             withAnimation(.easeInOut) {
@@ -146,42 +173,10 @@ struct OrientationQuestionView: View, QuestionController, FormController {
         VStack(spacing: 0) {
             // Header
             VStack(spacing: 12) {
-                HStack {
-                    Button(action: {
-                        // Navigate back to dashboard
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("Dashboard")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        // Close action - handled by speech coordinator
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 32, height: 32)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                
                 Text("Orientation")
                     .font(.system(size: 24, weight: .semibold))
                     .foregroundColor(.primary)
+                    .padding(.top, 16)
                 
                 Text("Question \(currentQuestionIndex + 1) of \(questions.count)")
                     .font(.system(size: 14, weight: .medium))
@@ -269,12 +264,12 @@ struct OrientationQuestionView: View, QuestionController, FormController {
                 Spacer()
                 
                 if currentQuestionIndex == questions.count - 1 {
-                    Button("Next Question") {
+                    Button("Complete Section") {
                         onComplete()
                     }
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.white)
-                    .frame(width: 140, height: 44)
+                    .frame(width: 160, height: 44)
                     .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
                     .buttonStyle(.plain)
                 } else {
@@ -609,7 +604,8 @@ struct TimeInputView: View {
     
     return CognitiveTestView(
         cognitiveResult: sampleCognitiveResult,
-        onComplete: { print("Cognitive test completed") }
+        onComplete: { print("Cognitive test completed") },
+        onSkip: { print("Cognitive test skipped") }
     )
     .frame(width: 550, height: 600)
     .background(.black.opacity(0.3))

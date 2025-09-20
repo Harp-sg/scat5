@@ -214,7 +214,7 @@ struct FallingBallCatchView: View {
             // Add exit button
             if let exitButton = attachments.entity(for: "exitButton") {
                 let anchor = AnchorEntity(.head)
-                exitButton.position = [0.8, 0.4, -1.2]
+                exitButton.position = [0.4, 0.4, -1.2]  // Moved closer from 0.8 to 0.4
                 exitButton.components.set(BillboardComponent())
                 anchor.addChild(exitButton)
                 content.add(anchor)
@@ -256,13 +256,24 @@ struct FallingBallCatchView: View {
                                 Text("Difficulty")
                                     .font(.headline)
                                 
-                                Picker("", selection: $difficulty) {
+                                // Replace finicky segmented picker with individual buttons
+                                HStack(spacing: 16) {
                                     ForEach(Difficulty.allCases, id: \.self) { level in
-                                        Text(level.rawValue).tag(level)
+                                        Button {
+                                            difficulty = level
+                                        } label: {
+                                            Text(level.rawValue)
+                                                .font(.system(size: 16, weight: .medium))
+                                                .foregroundColor(difficulty == level ? .white : .primary)
+                                                .frame(width: 65, height: 40)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 8)
+                                                        .fill(difficulty == level ? Color.orange : Color.gray.opacity(0.2))
+                                                )
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
-                                .pickerStyle(SegmentedPickerStyle())
-                                .frame(width: 300)
                                 
                                 Text(difficulty.description)
                                     .font(.caption)
@@ -270,10 +281,33 @@ struct FallingBallCatchView: View {
                                     .multilineTextAlignment(.center)
                             }
                             
-                            VStack {
+                            VStack(spacing: 8) {
                                 Text("Duration: \(Int(gameDuration)) seconds")
-                                Slider(value: $gameDuration, in: 30...120, step: 10)
-                                    .frame(width: 250)
+                                    .font(.system(size: 16, weight: .medium))
+                                
+                                HStack(spacing: 12) {
+                                    Button("-10s") {
+                                        gameDuration = max(30, gameDuration - 10)
+                                    }
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 36)
+                                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                                    .buttonStyle(.plain)
+                                    
+                                    Text("\(Int(gameDuration))s")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .frame(width: 60)
+                                    
+                                    Button("+10s") {
+                                        gameDuration = min(120, gameDuration + 10)
+                                    }
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 36)
+                                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 6))
+                                    .buttonStyle(.plain)
+                                }
                             }
                             
                             Text("Instructions:")
@@ -294,14 +328,12 @@ struct FallingBallCatchView: View {
                         
                         Button(action: startGame) {
                             Label("Start Athletic Test", systemImage: "figure.basketball")
-                                .font(.title3)
-                                .frame(width: 220)
-                                .padding()
-                                .background(Color.orange)
+                                .font(.system(size: 18, weight: .semibold))
+                                .frame(width: 220, height: 50)
+                                .background(Color.orange, in: RoundedRectangle(cornerRadius: 12))
                                 .foregroundColor(.white)
-                                .cornerRadius(10)
                         }
-                        
+                        .buttonStyle(.plain)
                     } else {
                         // During game controls
                         VStack(spacing: 10) {
@@ -360,19 +392,21 @@ struct FallingBallCatchView: View {
                             HStack(spacing: 20) {
                                 Button(action: { isPaused.toggle() }) {
                                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                                        .frame(width: 60, height: 40)
-                                        .background(Color.orange)
+                                        .font(.system(size: 18))
+                                        .frame(width: 70, height: 45)
+                                        .background(Color.orange, in: RoundedRectangle(cornerRadius: 10))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                                 
                                 Button(action: stopGame) {
                                     Text("Stop")
-                                        .frame(width: 60, height: 40)
-                                        .background(Color.red)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 70, height: 45)
+                                        .background(Color.red, in: RoundedRectangle(cornerRadius: 10))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -622,8 +656,8 @@ struct FallingBallCatchView: View {
         }
         previewBalls.removeAll()
         
-        // Create 4-6 preview balls in holders
-        let numBalls = Int.random(in: 4...6)
+        // Create fewer preview balls in a smaller setup
+        let numBalls = Int.random(in: 3...5)  // Reduced from 4-6
         let positions = getBallHolderPositions(count: numBalls)
         
         for (index, position) in positions.enumerated() {
@@ -677,18 +711,18 @@ struct FallingBallCatchView: View {
     
     private func getBallHolderPositions(count: Int) -> [SIMD3<Float>] {
         var positions: [SIMD3<Float>] = []
-        let height: Float = 1.8  // Lower height - within reach
+        let height: Float = 1.6  // Eye level height
         
-        // Arrange in an arc around the player - much closer and wider
-        let radius: Float = 0.8  // Much closer - within arm's reach
-        let totalAngle: Float = Float.pi * 0.6  // 108 degrees - wide peripheral arc
-        let angleStep = totalAngle / Float(count - 1)
-        let startAngle = -totalAngle / 2  // Start from left side
+        // Arrange in a small arc directly in front of the player
+        let radius: Float = 0.6  // Much closer - right in front
+        let totalAngle: Float = Float.pi * 0.3  // 54 degrees - narrow arc in front
+        let angleStep = count > 1 ? totalAngle / Float(count - 1) : 0
+        let startAngle = -totalAngle / 2  // Center the arc
         
         for i in 0..<count {
             let angle = startAngle + angleStep * Float(i)
             let x = sin(angle) * radius
-            let z = cos(angle) * radius - 0.2  // Slightly in front, not behind
+            let z = -cos(angle) * radius - 0.8  // Negative Z puts it in front of player
             positions.append([x, height, z])
         }
         
@@ -1102,66 +1136,28 @@ struct FallingBallCatchView: View {
     // MARK: - Helper Functions
     
     private func createCatchZones(in root: Entity) {
-        // Create visual catch zone indicators - closer to player
-        let zoneMaterial = SimpleMaterial(color: UIColor.orange.withAlphaComponent(0.1), isMetallic: false)
+        // Create minimal visual catch zone - just a ground reference
+        let zoneMaterial = SimpleMaterial(color: UIColor.orange.withAlphaComponent(0.05), isMetallic: false)
         
-        // Ground catch zone - smaller and closer
+        // Small ground catch zone directly in front
         let groundZone = ModelEntity(
-            mesh: .generatePlane(width: 2.5, depth: 2.5),  // Smaller catch zone, closer to player
+            mesh: .generatePlane(width: 1.5, depth: 1.5),  // Much smaller
             materials: [zoneMaterial]
         )
-        groundZone.position = [0, 0.3, 0.2]  // Closer to player, not behind
+        groundZone.position = [0, 0.3, -0.8]  // In front of player
         groundZone.orientation = simd_quatf(angle: -.pi/2, axis: [1, 0, 0])
         root.addChild(groundZone)
-        
-        // Height reference markers - closer to player
-        for height in stride(from: 1.2, through: 2.0, by: 0.2) {
-            let marker = ModelEntity(
-                mesh: .generateSphere(radius: 0.02),
-                materials: [SimpleMaterial(color: .yellow.withAlphaComponent(0.4), isMetallic: false)]
-            )
-            marker.position = [0.8, Float(height), 0.2]  // Much closer to player
-            root.addChild(marker)
-        }
-        
-        // Add peripheral vision guides
-        for angle in [-0.5, 0.5] {  // Left and right peripheral markers
-            let peripheralGuide = ModelEntity(
-                mesh: .generateSphere(radius: 0.03),
-                materials: [SimpleMaterial(color: .cyan.withAlphaComponent(0.3), isMetallic: false)]
-            )
-            peripheralGuide.position = [Float(angle), 1.6, 0.1]
-            root.addChild(peripheralGuide)
-        }
     }
     
     private func createBallHolders(in root: Entity) {
-        // Create visual holders where preview balls sit
-        let holderMaterial = SimpleMaterial(color: UIColor.cyan.withAlphaComponent(0.3), isMetallic: false)
-        
-        let numHolders = 6
+        // Simplified - just create holder positions without visual elements
+        let numHolders = 5  // Reduce number for smaller setup
         let positions = getBallHolderPositions(count: numHolders)
         
-        for position in positions {
-            // Create holder platform
-            let holder = ModelEntity(
-                mesh: .generateCylinder(height: 0.02, radius: 0.06),  // Smaller holders
-                materials: [holderMaterial]
-            )
-            holder.position = position - [0, 0.04, 0]  // Just below ball position
-            root.addChild(holder)
-            ballHolders.append(holder)
-            
-            // Add holder glow
-            let glow = ModelEntity(
-                mesh: .generateCylinder(height: 0.01, radius: 0.10),
-                materials: [SimpleMaterial(color: UIColor.cyan.withAlphaComponent(0.1), isMetallic: false)]
-            )
-            glow.position = [0, -0.01, 0]
-            holder.addChild(glow)
-        }
+        // Store positions but don't create visual holders
+        ballHolders.removeAll()
         
-        print("🏀 Created \(ballHolders.count) ball holders in peripheral arc")
+        print("🏀 Created \(numHolders) ball holder positions in front arc")
     }
     
     private func athleteColor(_ rating: AthleteRating) -> Color {

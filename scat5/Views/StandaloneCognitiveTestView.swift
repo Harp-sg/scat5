@@ -4,6 +4,7 @@ import SwiftData
 struct StandaloneCognitiveTestView: View, TestController {
     @Bindable var cognitiveResult: CognitiveResult
     let onComplete: () -> Void
+    let onSkip: (() -> Void)?
     @Environment(SpeechControlCoordinator.self) private var speechCoordinator
     @State private var currentQuestionIndex = 0
     
@@ -27,44 +28,27 @@ struct StandaloneCognitiveTestView: View, TestController {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header (similar to CognitiveTestView)
+            // Header (clean) with skip button
             VStack(spacing: 12) {
                 HStack {
-                    Button(action: {
-                        // Navigate back to dashboard if needed
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "chevron.left")
-                                .font(.system(size: 14, weight: .medium))
-                            Text("Dashboard")
-                                .font(.system(size: 14, weight: .medium))
-                        }
+                    Text("Cognitive Screening")
+                        .font(.system(size: 24, weight: .semibold))
                         .foregroundColor(.primary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
                     
                     Spacer()
                     
-                    Button(action: {
-                        // Close action if needed
-                    }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
-                            .frame(width: 32, height: 32)
-                            .background(.ultraThinMaterial, in: Circle())
+                    if let onSkip = onSkip {
+                        Button("Skip Module") {
+                            onSkip()
+                        }
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.orange)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 20)
                 .padding(.top, 16)
-                
-                Text("Cognitive Screening")
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundColor(.primary)
                 
                 Text("Question \(safeQuestionIndex + 1) of \(cognitiveQuestions.count)")
                     .font(.system(size: 14, weight: .medium))
@@ -157,7 +141,7 @@ struct StandaloneCognitiveTestView: View, TestController {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .frame(width: 600, height: 520)
+        .frame(width: 700, height: 650)
         .glassBackgroundEffect()
         .onAppear {
             speechCoordinator.testController = self
@@ -209,6 +193,8 @@ struct StandaloneCognitiveTestView: View, TestController {
             }
         case .completeTest:
             onComplete()
+        case .skipModule:
+            onSkip?()
         default:
             break
         }

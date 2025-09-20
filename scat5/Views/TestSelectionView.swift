@@ -173,16 +173,17 @@ struct TestSelectionView: View, CarouselController {
             
             Spacer()
             
-            // Balance with invisible button
-            Button(action: {}) {
+            Button {
+                viewRouter.navigate(to: .fullAssessment(testType))
+            } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "chevron.left")
+                    Image(systemName: "play.circle.fill")
                         .font(.title3.weight(.semibold))
-                    Text("Dashboard")
+                    Text("Run Full Diagnosis")
                         .font(.subheadline.weight(.semibold))
                 }
             }
-            .opacity(0)
+            .buttonStyle(.borderedProminent)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 12)
@@ -426,10 +427,13 @@ struct TestSelectionView: View, CarouselController {
             user.testSessions.append(newSession)
             currentSession = newSession
             
-            do {
-                try modelContext.save()
-            } catch {
-                print("Failed to create session: \(error)")
+            // Skip persistence when in emergency mode (no user in model context)
+            if !authService.isEmergencyMode {
+                do {
+                    try modelContext.save()
+                } catch {
+                    print("Failed to create session: \(error)")
+                }
             }
         }
     }

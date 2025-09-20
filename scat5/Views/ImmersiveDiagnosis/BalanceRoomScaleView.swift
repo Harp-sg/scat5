@@ -75,6 +75,9 @@ struct BalanceRoomScaleView: View {
     @State private var results: TestResults?
     @State private var showResults = false
 
+    // Add motion manager for balance sensor data
+    @State private var motionManager = MotionManager()
+
     var body: some View {
         RealityView { content, attachments in
             // Create room-scale plank environment
@@ -100,10 +103,10 @@ struct BalanceRoomScaleView: View {
                 content.add(anchor)
             }
             
-            // Exit button
+            // Exit button - repositioned closer
             if let exit = attachments.entity(for: "exit") {
                 let anchor = AnchorEntity(.head)
-                exit.position = [0.8, 0.4, -1.2]
+                exit.position = [0.4, 0.4, -1.2]  // Moved closer from 0.8 to 0.4
                 exit.components.set(BillboardComponent())
                 anchor.addChild(exit)
                 content.add(anchor)
@@ -147,18 +150,33 @@ struct BalanceRoomScaleView: View {
                                     .multilineTextAlignment(.center)
                                     .foregroundColor(.secondary)
                                 
-                                Picker("Difficulty", selection: $difficultyLevel) {
-                                    ForEach(DifficultyLevel.allCases, id: \.self) { 
-                                        Text($0.rawValue).tag($0) 
+                                // Replace finicky segmented picker with individual buttons
+                                VStack(spacing: 12) {
+                                    Text("Difficulty Level")
+                                        .font(.headline)
+                                    
+                                    HStack(spacing: 12) {
+                                        ForEach(DifficultyLevel.allCases, id: \.self) { level in
+                                            Button {
+                                                difficultyLevel = level
+                                                applyDifficulty(level)
+                                            } label: {
+                                                Text(level.rawValue)
+                                                    .font(.system(size: 14, weight: .medium))
+                                                    .foregroundColor(difficultyLevel == level ? .white : .primary)
+                                                    .frame(width: 65, height: 40)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(difficultyLevel == level ? Color.blue : Color.gray.opacity(0.2))
+                                                    )
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
                                     }
                                 }
-                                .pickerStyle(.segmented)
-                                .frame(width: 300)
-                                .onChange(of: difficultyLevel) { _, new in 
-                                    applyDifficulty(new)
-                                }
 
-                                VStack(alignment: .leading, spacing: 4) {
+                                // Better formatted difficulty info
+                                VStack(spacing: 4) {
                                     Text("• Width: \(Int(difficultyLevel.plankWidth * 100))cm")
                                         .font(.caption)
                                     Text("• Length: \(Int(plankLength * 100))cm")
@@ -169,31 +187,34 @@ struct BalanceRoomScaleView: View {
                                         Text("• Wind effects enabled")
                                             .font(.caption)
                                             .foregroundColor(.orange)
+                                            .fontWeight(.medium)
                                     }
                                     if difficultyLevel.swayEnabled {
                                         Text("• Plank sway enabled")
                                             .font(.caption)
                                             .foregroundColor(.red)
+                                            .fontWeight(.medium)
                                     }
                                 }
+                                .foregroundColor(.secondary)
                                 
                                 Text("⚠️ Ensure you have 3+ meters of clear walking space")
                                     .font(.caption)
                                     .foregroundColor(.orange)
                                     .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 8)
                             }
 
                             Button {
                                 startTest()
                             } label: {
                                 Label("Start Room-Scale Test", systemImage: "figure.walk")
-                                    .font(.title3)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(Color.blue)
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .frame(width: 300, height: 50)
+                                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
                                     .foregroundColor(.white)
-                                    .cornerRadius(12)
                             }
+                            .buttonStyle(.plain)
                             .frame(width: 300)
                         } else {
                             // During test
@@ -211,24 +232,64 @@ struct BalanceRoomScaleView: View {
                                 Text("Distance: \(String(format: "%.1f", totalDistance))m")
                                     .font(.caption)
 
-                                // Live balance feedback
+                                // Live balance feedback with motion sensor data
                                 VStack(spacing: 6) {
                                     Text("Balance Status")
                                         .font(.headline)
                                     
                                     let currentDev = currentDeviationFromPlankCenter()
                                     
-                                    HStack {
-                                        Text("Deviation:")
-                                        Text("\(Int(abs(currentDev) * 100))cm")
-                                            .foregroundColor(balanceColor(abs(currentDev)))
-                                            .fontWeight(.bold)
+                                    HStack(spacing: 16) {
+                                        VStack {
+                                            Text("Deviation:")
+                                                .font(.caption)
+                                            Text("\(Int(abs(currentDev) * 100))cm")
+                                                .foregroundColor(balanceColor(abs(currentDev)))
+                                                .fontWeight(.bold)
+                                        }
+                                        
+                                        VStack {
+                                            Text("Speed:")
+                                                .font(.caption)
+                                            Text(String(format: "%.1f m/s", averageSpeed))
+                                                .foregroundColor(speedColor(averageSpeed))
+                                        }
                                     }
                                     
-                                    HStack {
-                                        Text("Speed:")
-                                        Text(String(format: "%.1f m/s", averageSpeed))
-                                            .foregroundColor(speedColor(averageSpeed))
+                                    Divider()
+                                    
+                                    // Motion sensor data
+                                    Text("Motion Sensors")
+                                        .font(.caption.bold())
+                                        .foregroundColor(.blue)
+                                    
+                                    HStack(spacing: 12) {
+                                        VStack {
+                                            Text("Pitch")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.pitch))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
+                                        
+                                        VStack {
+                                            Text("Roll")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.roll))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
+                                        
+                                        VStack {
+                                            Text("Yaw")
+                                                .font(.caption2)
+                                                .foregroundColor(.secondary)
+                                            Text(String(format: "%.2f", motionManager.yaw))
+                                                .font(.caption.bold())
+                                                .foregroundColor(.primary)
+                                        }
                                     }
                                     
                                     if isNearEdge {
@@ -247,11 +308,12 @@ struct BalanceRoomScaleView: View {
                                     stopTest()
                                 } label: {
                                     Text("Complete Test")
-                                        .frame(width: 120, height: 40)
-                                        .background(Color.green)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .frame(width: 140, height: 45)
+                                        .background(Color.green, in: RoundedRectangle(cornerRadius: 10))
                                         .foregroundColor(.white)
-                                        .cornerRadius(8)
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -336,10 +398,11 @@ struct BalanceRoomScaleView: View {
                                 )
                             }
                         }
-                        .padding()
-                        .background(Color.blue)
+                        .font(.system(size: 16, weight: .medium))
+                        .frame(width: 140, height: 45)
+                        .background(Color.blue, in: RoundedRectangle(cornerRadius: 10))
                         .foregroundColor(.white)
-                        .cornerRadius(10)
+                        .buttonStyle(.plain)
                     }
                     .padding()
                     .frame(width: 420)
@@ -369,10 +432,12 @@ struct BalanceRoomScaleView: View {
             }
         }
         .onAppear { 
-            startHeadPose() 
+            startHeadPose()
+            motionManager.startUpdates()  // Add motion updates
         }
         .onDisappear { 
             stopHeadPose()
+            motionManager.stopUpdates()  // Stop motion updates
             stopTest() 
         }
     }
@@ -398,29 +463,30 @@ struct BalanceRoomScaleView: View {
         let e = Entity()
         let mesh = MeshResource.generateBox(width: plankWidth, height: 0.08, depth: plankLength)
         var mat = SimpleMaterial()
-        mat.color = .init(tint: UIColor(red: 0.6, green: 0.4, blue: 0.2, alpha: 1))
-        mat.roughness = 0.7; mat.metallic = 0.2
+        // More visible plank but not overwhelming
+        mat.color = .init(tint: UIColor(red: 0.8, green: 0.6, blue: 0.3, alpha: 0.9))
+        mat.roughness = 0.5; mat.metallic = 0.4
         e.addChild(ModelEntity(mesh: mesh, materials: [mat]))
 
-        // Edge markers - more visible for room-scale
-        let edgeMat = SimpleMaterial(color: UIColor.red.withAlphaComponent(0.9), isMetallic: false)
-        let edgeH: Float = 0.03, edgeW: Float = 0.015
+        // More prominent edge markers - safety critical
+        let edgeMat = SimpleMaterial(color: UIColor.red.withAlphaComponent(0.95), isMetallic: false)
+        let edgeH: Float = 0.04, edgeW: Float = 0.02
         let left  = ModelEntity(mesh: .generateBox(width: edgeW, height: edgeH, depth: plankLength), materials: [edgeMat])
         let right = ModelEntity(mesh: .generateBox(width: edgeW, height: edgeH, depth: plankLength), materials: [edgeMat])
         left.position  = [-plankWidth/2, 0.04, 0]
         right.position = [ plankWidth/2, 0.04, 0]
         e.addChild(left); e.addChild(right)
 
-        // Center line - more prominent
-        let center = ModelEntity(mesh: .generateBox(width: 0.03, height: 0.002, depth: plankLength),
-                                 materials: [SimpleMaterial(color: .white.withAlphaComponent(0.8), isMetallic: false)])
-        center.position.y = 0.041
+        // More visible center line
+        let center = ModelEntity(mesh: .generateBox(width: 0.04, height: 0.003, depth: plankLength),
+                             materials: [SimpleMaterial(color: .white.withAlphaComponent(0.95), isMetallic: false)])
+        center.position.y = 0.042
         e.addChild(center)
         
-        // Add distance markers on the plank
+        // More subtle distance markers on the plank
         for i in stride(from: -plankLength/2, through: plankLength/2, by: 1.0) {
-            let marker = ModelEntity(mesh: .generateBox(width: 0.01, height: 0.001, depth: 0.1),
-                                     materials: [SimpleMaterial(color: .yellow.withAlphaComponent(0.6), isMetallic: false)])
+            let marker = ModelEntity(mesh: .generateBox(width: 0.008, height: 0.001, depth: 0.08),
+                                 materials: [SimpleMaterial(color: .yellow.withAlphaComponent(0.4), isMetallic: false)])
             marker.position = [0, 0.042, i]
             e.addChild(marker)
         }
@@ -429,58 +495,29 @@ struct BalanceRoomScaleView: View {
     }
 
     private func createVoid(in root: Entity) {
-        let void = ModelEntity(mesh: .generatePlane(width: 100, depth: 100),
-                               materials: [SimpleMaterial(color: .black, isMetallic: false)])
-        void.position.y = -plankHeight
-        void.orientation = simd_quatf(angle: -.pi/2, axis: [1,0,0])
-        root.addChild(void)
-        
-        // Add mist layers for depth
-        for i in 1...8 {
-            let mist = ModelEntity(mesh: .generatePlane(width: 80, depth: 80),
-                                   materials: [SimpleMaterial(color: UIColor.gray.withAlphaComponent(0.08), isMetallic: false)])
-            mist.position.y = -Float(i) * 1.5
-            mist.orientation = simd_quatf(angle: -.pi/2, axis: [1,0,0])
-            root.addChild(mist)
-        }
+        // No ground plane at all - users can see their real environment
     }
 
     private func createAtmosphere(in root: Entity) {
-        // Atmospheric particles
-        for _ in 0..<30 {
-            let particle = ModelEntity(mesh: .generateSphere(radius: 0.3),
-                                       materials: [SimpleMaterial(color: UIColor.white.withAlphaComponent(0.2), isMetallic: false)])
-            particle.position = [
-                Float.random(in: -15...15), 
-                Float.random(in: -plankHeight...8), 
-                Float.random(in: -15...15)
-            ]
-            // Avoid placing particles on the plank path
-            if abs(particle.position.x) < 2 && abs(particle.position.z) < plankLength/2 + 3 {
-                particle.position.x = particle.position.x < 0 ? -4 : 4
-            }
-            root.addChild(particle)
-        }
-        
-        // Side barriers for reference
-        let barrierMat = SimpleMaterial(color: UIColor.blue.withAlphaComponent(0.3), isMetallic: false)
-        let leftBarrier = ModelEntity(mesh: .generateBox(width: 0.1, height: 2, depth: plankLength * 1.5),
-                                      materials: [barrierMat])
-        leftBarrier.position = [-3, 1, 0]
+        // Keep only essential side barriers as subtle guides - no particles
+        let barrierMat = SimpleMaterial(color: UIColor.blue.withAlphaComponent(0.1), isMetallic: false)
+        let leftBarrier = ModelEntity(mesh: .generateBox(width: 0.02, height: 0.5, depth: plankLength * 1.2),
+                                  materials: [barrierMat])
+        leftBarrier.position = [-2.5, 0.25, 0]
         root.addChild(leftBarrier)
         
-        let rightBarrier = ModelEntity(mesh: .generateBox(width: 0.1, height: 2, depth: plankLength * 1.5),
-                                       materials: [barrierMat])
-        rightBarrier.position = [3, 1, 0]
+        let rightBarrier = ModelEntity(mesh: .generateBox(width: 0.02, height: 0.5, depth: plankLength * 1.2),
+                                   materials: [barrierMat])
+        rightBarrier.position = [2.5, 0.25, 0]
         root.addChild(rightBarrier)
     }
     
     private func createDistanceMarkers(in root: Entity) {
-        // Add distance markers every meter
-        for i in stride(from: -10, through: 10, by: 2) {
-            let marker = ModelEntity(mesh: .generateBox(width: 0.5, height: 0.1, depth: 0.1),
-                                     materials: [SimpleMaterial(color: .green.withAlphaComponent(0.5), isMetallic: false)])
-            marker.position = [0, -0.5, Float(i)]
+        // More subtle distance markers
+        for i in stride(from: -8, through: 8, by: 2) {
+            let marker = ModelEntity(mesh: .generateBox(width: 0.3, height: 0.05, depth: 0.05),
+                                     materials: [SimpleMaterial(color: .green.withAlphaComponent(0.3), isMetallic: false)])
+            marker.position = [0, -0.3, Float(i)]
             root.addChild(marker)
         }
     }

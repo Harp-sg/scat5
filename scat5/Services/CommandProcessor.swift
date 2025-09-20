@@ -21,6 +21,7 @@ enum VoiceCommand: CustomStringConvertible {
     // Test Control
     case startTest
     case completeTest
+    case skipModule    // NEW: Skip the current module
     case nextTrial
     case nextQuestion  // NEW: Navigate to next question
     case previousQuestion  // NEW: Navigate to previous question
@@ -79,6 +80,7 @@ enum VoiceCommand: CustomStringConvertible {
         case .selectItemByName(let name): return "Select \(name)"
         case .startTest: return "Start Test"
         case .completeTest: return "Complete Test"
+        case .skipModule: return "Skip Module"
         case .nextTrial: return "Next Trial"
         case .nextQuestion: return "Next Question"
         case .previousQuestion: return "Previous Question"
@@ -207,6 +209,11 @@ class CommandProcessor {
         "begin": .startTest,
         "start timer": .startTimer,
         "begin timer": .startTimer,
+        
+        "skip": .skipModule,
+        "skip module": .skipModule,
+        "skip test": .skipModule,
+        "skip this": .skipModule,
         
         "complete": .completeTest,
         "finish": .completeTest,
@@ -579,7 +586,7 @@ class CommandProcessor {
             delegate?.executeNavigationCommand(command)
         case .nextItem, .previousItem, .selectItem, .selectItemByName:
             delegate?.executeCarouselCommand(command)
-        case .startTest, .completeTest, .nextTrial, .nextQuestion, .previousQuestion, .startRecording, .stopRecording,
+        case .startTest, .completeTest, .skipModule, .nextTrial, .nextQuestion, .previousQuestion, .startRecording, .stopRecording,
              .addError, .rate, .markCorrect, .markIncorrect, .submitAnswer, .pauseTest, .resumeTest, .resetTest,
              .goToOrientation, .goToImmediateMemory, .goToConcentration, .goToDelayedRecall,
              .nextStance, .previousStance, .startTimer, .stopTimer,
